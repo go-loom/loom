@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/codegangsta/cli"
 	"gopkg.in/loom.v1/server"
+	"gopkg.in/loom.v1/worker"
 	"os"
 )
 
@@ -34,6 +35,18 @@ func main() {
 				},
 			},
 		},
+		{
+			Name:      "worker",
+			ShortName: "w",
+			Usage:     "",
+			Action:    WorkerAction,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "serverurl,s",
+					Value: "http://localhost:7000/kite",
+				},
+			},
+		},
 	}
 
 	app.Run(os.Args)
@@ -43,4 +56,10 @@ func ServerAction(c *cli.Context) {
 	dbpath := c.String("dbpath")
 	port := c.Int("port")
 	server.Main(port, dbpath, VERSION)
+}
+
+func WorkerAction(c *cli.Context) {
+	serverURL := c.String("serverurl")
+	worker.Main(serverURL, VERSION)
+
 }

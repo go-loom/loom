@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/koding/kite"
 	"log"
 	"os"
 	"path/filepath"
@@ -11,20 +12,27 @@ import (
 )
 
 type Broker struct {
-	ID         int64
-	DBPath     string
-	Topics     map[string]*Topic
-	topicMutex sync.Mutex
-	idChan     chan MessageID
+	ID               int64
+	DBPath           string
+	Topics           map[string]*Topic
+	kite             *kite.Kite
+	topicMutex       sync.Mutex
+	idChan           chan MessageID
+	Clients          map[string]*kite.Client
+	clientTopicNames map[string]string
+	clientsMutex     sync.RWMutex
 }
 
-func NewBroker(dbpath string) *Broker {
+func NewBroker(dbpath string, k *kite.Kite) *Broker {
 
 	b := &Broker{
-		ID:     1,
-		DBPath: dbpath,
-		Topics: make(map[string]*Topic),
-		idChan: make(chan MessageID, 4096), // Buffer
+		ID:               1,
+		DBPath:           dbpath,
+		Topics:           make(map[string]*Topic),
+		idChan:           make(chan MessageID, 4096), // Buffer
+		kite:             k,
+		Clients:          make(map[string]*kite.Client),
+		clientTopicNames: make(map[string]string),
 	}
 
 	return b
@@ -53,7 +61,20 @@ func (b *Broker) Init() error {
 		logger.Info("Load topic db", "topic", topicName, "db", p)
 	}
 
+	go b.popToClients()
+
 	return nil
+}
+
+func (b *Broker) HandleWorkInit(r *kite.Request) (interface{}, error) {
+	topicName := r.Args.One().MustString()
+	b.clientsMutex.Lock()
+	defer b.clientsMutex.Unlock()
+
+	b.Clients[r.Client.LocalKite.Id] = r.Client
+	b.clientTopicNames[r.Client.LocalKite.Id] = topicName
+
+	return true, nil
 }
 
 func (b *Broker) Topic(name string) *Topic {
@@ -129,4 +150,18 @@ func (b *Broker) idPump() {
 			//TODO: exitChan?
 		}
 	}
+}
+
+func (b *Broker) popToClients() {
+	for {
+		b.clientsMutex.RLock()
+		//TODO:
+		for id, c := range b.Clients {
+			topicName := b.clientTopicNames[id]
+			msg := b.PopMessage(topicName)
+			c.Tell("loom.worker.pop", msg)
+		}
+		b.clientsMutex.RUnlock()
+	}
+
 }
