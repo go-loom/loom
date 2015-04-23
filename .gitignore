@@ -22,3 +22,6 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+loom.v1
+loom

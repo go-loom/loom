@@ -32,11 +32,6 @@ func main() {
 					Value: 7000,
 					Usage: "port for the server",
 				},
-				cli.StringFlag{
-					Name:  "host,h",
-					Value: "",
-					Usage: "host address for the server",
-				},
 			},
 		},
 	}
@@ -47,7 +42,5 @@ func main() {
 func ServerAction(c *cli.Context) {
 	dbpath := c.String("dbpath")
 	port := c.Int("port")
-	host := c.String("host")
-
-	server.Main(host, port, dbpath, VERSION)
+	server.Main(port, dbpath, VERSION)
 }
