@@ -62,20 +62,20 @@ func (b *Broker) Init() error {
 	}
 
 	//Register Worker RPC
-	b.kite.HandleFunc("loom.worker.init", b.HandleWorkInit)
+	b.kite.HandleFunc("loom.worker.init", b.HandleWorkerInit)
+	b.kite.HandleFunc("loom.worker.pop.message", b.HandleWorkerPopMessage)
+	b.kite.OnDisconnect(b.WorkerDisconnect)
 
-	go b.popToClients()
+	//go b.popToClients()
 
 	return nil
 }
 
-func (b *Broker) HandleWorkInit(r *kite.Request) (interface{}, error) {
-	logger.Debug("S: worker init")
+func (b *Broker) HandleWorkerInit(r *kite.Request) (interface{}, error) {
+	args := r.Args.MustSlice()
 
-	response := r.Args.MustSlice()
-
-	workerId := response[0].MustString()
-	topicName := response[1].MustString()
+	workerId := args[0].MustString()
+	topicName := args[1].MustString()
 
 	b.clientsMutex.Lock()
 
@@ -87,8 +87,26 @@ func (b *Broker) HandleWorkInit(r *kite.Request) (interface{}, error) {
 	b.clientsMutex.Unlock()
 
 	logger.Info("worker.init", "worker", workerId, "topic", topicName)
-	logger.Debug("D: worker init")
 	return true, nil
+}
+
+func (b *Broker) HandleWorkerPopMessage(r *kite.Request) (interface{}, error) {
+	topicName := r.Args.One().MustString()
+	msg := b.PopMessage(topicName)
+	return msg, nil
+}
+
+func (b *Broker) WorkerDisconnect(c *kite.Client) {
+	b.clientsMutex.Lock()
+	defer b.clientsMutex.Unlock()
+
+	if _, ok := b.Clients[c.ID]; ok {
+		delete(b.Clients, c.ID)
+		if _, _ok := b.clientTopicNames[c.ID]; _ok {
+			delete(b.clientTopicNames, c.ID)
+		}
+		logger.Info("worker.disconnect", "worker", c.ID)
+	}
 }
 
 func (b *Broker) Topic(name string) *Topic {
@@ -173,6 +191,8 @@ func (b *Broker) popToClients() {
 			topicName := b.clientTopicNames[id]
 			msg := b.PopMessage(topicName)
 			c.Tell("loom.worker.pop", msg)
+			logger.Debug("worker.pop", "worker", id, "msgid", string(msg.ID[:]))
 		}
+		time.Sleep(1 * time.Second)
 	}
 }

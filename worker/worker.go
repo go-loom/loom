@@ -5,6 +5,7 @@ import (
 	"github.com/koding/kite"
 	"github.com/mgutz/logxi/v1"
 	"gopkg.in/loom.v1/server"
+	"time"
 )
 
 type Worker struct {
@@ -29,21 +30,17 @@ func NewWorker(serverURL string, k *kite.Kite) *Worker {
 func (w *Worker) Init() error {
 	w.Client = w.kite.NewClient(w.ServerURL)
 
-	logger.Info("worker", "clientId", w.Client.LocalKite.Id)
+	logger.Info("worker", "id", w.ID)
 
 	err := w.Client.Dial()
 	if err != nil {
 		return err
 	}
 
-	logger.Info("1")
-
 	response, err := w.Client.Tell("loom.worker.init", w.ID, "test")
 	if err != nil {
 		return err
 	}
-
-	logger.Info("2")
 
 	ok := response.MustBool()
 	if !ok {
@@ -52,9 +49,18 @@ func (w *Worker) Init() error {
 
 	w.kite.HandleFunc("loom.worker.pop", w.HandleMessagePop)
 
-	logger.Info("3")
+	go w.msgPump()
 
 	return nil
+}
+
+func (w *Worker) msgPump() {
+	for {
+		msg, err := w.Client.Tell("loom.worker.pop.message", "test")
+		w.logger.Debug("pop.message", "msg", msg, ",err", err)
+		time.Sleep(1 * time.Second)
+	}
+
 }
 
 func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
