@@ -23,11 +23,6 @@ func Main(port int, dbpath string, version string) {
 		os.Exit(1)
 	}
 
-	//OnConnect
-	k.OnConnect(func(c *kite.Client) {
-		logger.Info("Worker connected ", "client", c)
-	})
-
 	restRouter := httprouter.New()
 	restRouter.POST("/v1/queues/:queue", PushHandler)
 	restRouter.GET("/v1/queues/:queue", PopHandler)

@@ -61,19 +61,33 @@ func (b *Broker) Init() error {
 		logger.Info("Load topic db", "topic", topicName, "db", p)
 	}
 
+	//Register Worker RPC
+	b.kite.HandleFunc("loom.worker.init", b.HandleWorkInit)
+
 	go b.popToClients()
 
 	return nil
 }
 
 func (b *Broker) HandleWorkInit(r *kite.Request) (interface{}, error) {
-	topicName := r.Args.One().MustString()
+	logger.Debug("S: worker init")
+
+	response := r.Args.MustSlice()
+
+	workerId := response[0].MustString()
+	topicName := response[1].MustString()
+
 	b.clientsMutex.Lock()
-	defer b.clientsMutex.Unlock()
 
-	b.Clients[r.Client.LocalKite.Id] = r.Client
-	b.clientTopicNames[r.Client.LocalKite.Id] = topicName
+	r.Client.ID = workerId
 
+	b.Clients[workerId] = r.Client
+	b.clientTopicNames[workerId] = topicName
+
+	b.clientsMutex.Unlock()
+
+	logger.Info("worker.init", "worker", workerId, "topic", topicName)
+	logger.Debug("D: worker init")
 	return true, nil
 }
 
@@ -154,14 +168,11 @@ func (b *Broker) idPump() {
 
 func (b *Broker) popToClients() {
 	for {
-		b.clientsMutex.RLock()
 		//TODO:
 		for id, c := range b.Clients {
 			topicName := b.clientTopicNames[id]
 			msg := b.PopMessage(topicName)
 			c.Tell("loom.worker.pop", msg)
 		}
-		b.clientsMutex.RUnlock()
 	}
-
 }

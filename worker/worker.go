@@ -28,15 +28,22 @@ func NewWorker(serverURL string, k *kite.Kite) *Worker {
 
 func (w *Worker) Init() error {
 	w.Client = w.kite.NewClient(w.ServerURL)
+
+	logger.Info("worker", "clientId", w.Client.LocalKite.Id)
+
 	err := w.Client.Dial()
 	if err != nil {
 		return err
 	}
 
-	response, err := w.Client.Tell("loom.worker.init", "test")
+	logger.Info("1")
+
+	response, err := w.Client.Tell("loom.worker.init", w.ID, "test")
 	if err != nil {
 		return err
 	}
+
+	logger.Info("2")
 
 	ok := response.MustBool()
 	if !ok {
@@ -44,6 +51,8 @@ func (w *Worker) Init() error {
 	}
 
 	w.kite.HandleFunc("loom.worker.pop", w.HandleMessagePop)
+
+	logger.Info("3")
 
 	return nil
 }
