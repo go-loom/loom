@@ -5,15 +5,17 @@ import (
 	"github.com/koding/kite"
 	"github.com/mgutz/logxi/v1"
 	"gopkg.in/loom.v1/server"
-	"time"
+	"sync"
 )
 
 type Worker struct {
-	ID        string
-	ServerURL string
-	kite      *kite.Kite
-	Client    *kite.Client
-	logger    log.Logger
+	ID             string
+	ServerURL      string
+	kite           *kite.Kite
+	Client         *kite.Client
+	logger         log.Logger
+	connected      bool
+	connectedMutex sync.RWMutex
 }
 
 func NewWorker(serverURL string, k *kite.Kite) *Worker {
@@ -32,10 +34,26 @@ func (w *Worker) Init() error {
 
 	logger.Info("worker", "id", w.ID)
 
-	err := w.Client.Dial()
+	connected, err := w.Client.DialForever()
+	<-connected
 	if err != nil {
 		return err
 	}
+
+	w.connectedMutex.Lock()
+	w.connected = true
+	w.connectedMutex.Unlock()
+
+	w.Client.OnConnect(func() {
+		w.connectedMutex.Lock()
+		w.connected = true
+		w.connectedMutex.Unlock()
+	})
+	w.Client.OnDisconnect(func() {
+		w.connectedMutex.Lock()
+		w.connected = false
+		w.connectedMutex.Unlock()
+	})
 
 	response, err := w.Client.Tell("loom.worker.init", w.ID, "test")
 	if err != nil {
@@ -56,11 +74,20 @@ func (w *Worker) Init() error {
 
 func (w *Worker) msgPump() {
 	for {
-		msg, err := w.Client.Tell("loom.worker.pop.message", "test")
-		w.logger.Debug("pop.message", "msg", msg, ",err", err)
-		time.Sleep(1 * time.Second)
-	}
+		w.connectedMutex.RLock()
+		connected := w.connected
+		w.connectedMutex.RUnlock()
 
+		if connected {
+			resp, err := w.Client.Tell("loom.worker.pop.message", "test")
+			if err != nil {
+				w.logger.Debug("pop.message", "err", err, "connected", connected)
+			} else {
+				msg := resp.MustMap()
+				w.logger.Debug("pop.message", "msg", msg, "err", err, "connected", connected)
+			}
+		}
+	}
 }
 
 func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {

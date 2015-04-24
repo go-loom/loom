@@ -35,3 +35,12 @@ func NewMessage(id MessageID, value interface{}) *Message {
 
 	return m
 }
+
+func (m *Message) JSON() map[string]interface{} {
+	return map[string]interface{}{
+		"id":      string(m.ID[:]),
+		"value":   string(m.Value.([]byte)),
+		"created": m.Created,
+		"state":   m.State,
+	}
+}

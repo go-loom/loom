@@ -93,7 +93,8 @@ func (b *Broker) HandleWorkerInit(r *kite.Request) (interface{}, error) {
 func (b *Broker) HandleWorkerPopMessage(r *kite.Request) (interface{}, error) {
 	topicName := r.Args.One().MustString()
 	msg := b.PopMessage(topicName)
-	return msg, nil
+
+	return msg.JSON(), nil
 }
 
 func (b *Broker) WorkerDisconnect(c *kite.Client) {
