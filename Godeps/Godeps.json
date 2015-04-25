@@ -1,0 +1,82 @@
+{
+	"ImportPath": "gopkg.in/loom.v1",
+	"GoVersion": "go1.4.1",
+	"Deps": [
+		{
+			"ImportPath": "code.google.com/p/go.crypto/ssh/terminal",
+			"Comment": "null-236",
+			"Rev": "69e2a90ed92d03812364aeb947b7068dc42e561e"
+		},
+		{
+			"ImportPath": "github.com/boltdb/bolt",
+			"Comment": "v1.0-72-g8a2a9b2",
+			"Rev": "8a2a9b2eb7123c41ea752bab494ff046909e9473"
+		},
+		{
+			"ImportPath": "github.com/cenkalti/backoff",
+			"Rev": "9831e1e25c874e0a0601b6dc43641071414eec7a"
+		},
+		{
+			"ImportPath": "github.com/codegangsta/cli",
+			"Comment": "1.2.0-98-g30b361b",
+			"Rev": "30b361bf66a60174a9589458afbf494478bafd00"
+		},
+		{
+			"ImportPath": "github.com/dgrijalva/jwt-go",
+			"Comment": "v2.2.0-23-g5ca8014",
+			"Rev": "5ca80149b9d3f8b863af0e2bb6742e608603bd99"
+		},
+		{
+			"ImportPath": "github.com/gorilla/websocket",
+			"Rev": "ecff5aabe41f13b4cdf897e3c0c9bbccbe552a29"
+		},
+		{
+			"ImportPath": "github.com/juju/ratelimit",
+			"Rev": "aa5bb718d4d435629821789cb90970319f57bfe5"
+		},
+		{
+			"ImportPath": "github.com/julienschmidt/httprouter",
+			"Rev": "8c199fb6259ffc1af525cc3ad52ee60ba8359669"
+		},
+		{
+			"ImportPath": "github.com/koding/cache",
+			"Rev": "487fc0ca06f9aa1a02d796f5510784b47d5afae2"
+		},
+		{
+			"ImportPath": "github.com/koding/kite",
+			"Rev": "1c5b9f6198050f6637399d5b1c7298e8594d2219"
+		},
+		{
+			"ImportPath": "github.com/koding/logging",
+			"Rev": "98efaf62e3c3ff8496dcb446242033f6d858bb3c"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-colorable",
+			"Rev": "d67e0b7d1797975196499f79bcc322c08b9f218b"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-isatty",
+			"Rev": "ae0b1f8f8004be68d791a576e3d8e7648ab41449"
+		},
+		{
+			"ImportPath": "github.com/mgutz/ansi",
+			"Rev": "22ddafb24adc4786c83841aa3021349818c898e4"
+		},
+		{
+			"ImportPath": "github.com/mgutz/logxi/v1",
+			"Rev": "f9be032893f108926c14775fef4c981a0fa18884"
+		},
+		{
+			"ImportPath": "github.com/mitchellh/mapstructure",
+			"Rev": "442e588f213303bec7936deba67901f8fc8f18b1"
+		},
+		{
+			"ImportPath": "github.com/nu7hatch/gouuid",
+			"Rev": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3"
+		},
+		{
+			"ImportPath": "gopkg.in/igm/sockjs-go.v2/sockjs",
+			"Rev": "50b75e1901c11bfce4e0467274fcc561e09aec65"
+		}
+	]
+}
