@@ -1,12 +1,14 @@
 package server
 
 import (
+	"github.com/koding/kite"
 	"os"
 	"testing"
 )
 
 func TestBoltStorePut(t *testing.T) {
-	b := NewBroker("/tmp/test")
+	k := kite.New("test", "0.0.1")
+	b := NewBroker("/tmp/test", k)
 	b.Init()
 
 	s, err := NewTopicStore("bolt", b.DBPath, "test")
