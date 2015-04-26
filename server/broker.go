@@ -12,27 +12,25 @@ import (
 )
 
 type Broker struct {
-	ID               int64
-	DBPath           string
-	Topics           map[string]*Topic
-	kite             *kite.Kite
-	topicMutex       sync.Mutex
-	idChan           chan MessageID
-	Clients          map[string]*kite.Client
-	clientTopicNames map[string]string
-	clientsMutex     sync.RWMutex
+	ID          int64
+	DBPath      string
+	Topics      map[string]*Topic
+	kite        *kite.Kite
+	topicMutex  sync.Mutex
+	idChan      chan MessageID
+	Workers     map[string]*Worker
+	workerMutex sync.RWMutex
 }
 
 func NewBroker(dbpath string, k *kite.Kite) *Broker {
 
 	b := &Broker{
-		ID:               1,
-		DBPath:           dbpath,
-		Topics:           make(map[string]*Topic),
-		idChan:           make(chan MessageID, 4096), // Buffer
-		kite:             k,
-		Clients:          make(map[string]*kite.Client),
-		clientTopicNames: make(map[string]string),
+		ID:      1,
+		DBPath:  dbpath,
+		Topics:  make(map[string]*Topic),
+		idChan:  make(chan MessageID, 4096), // Buffer
+		kite:    k,
+		Workers: make(map[string]*Worker),
 	}
 
 	return b
@@ -77,14 +75,18 @@ func (b *Broker) HandleWorkerInit(r *kite.Request) (interface{}, error) {
 	workerId := args[0].MustString()
 	topicName := args[1].MustString()
 
-	b.clientsMutex.Lock()
-
 	r.Client.ID = workerId
 
-	b.Clients[workerId] = r.Client
-	b.clientTopicNames[workerId] = topicName
+	b.workerMutex.Lock()
 
-	b.clientsMutex.Unlock()
+	w, ok := b.Workers[workerId]
+	if !ok {
+		w = NewConnectedWorker(workerId, topicName, r.Client)
+		b.Workers[workerId] = w
+	}
+	w.Connected = true
+
+	b.workerMutex.Unlock()
 
 	logger.Info("worker.init", "worker", workerId, "topic", topicName)
 	return true, nil
@@ -98,14 +100,11 @@ func (b *Broker) HandleWorkerPopMessage(r *kite.Request) (interface{}, error) {
 }
 
 func (b *Broker) WorkerDisconnect(c *kite.Client) {
-	b.clientsMutex.Lock()
-	defer b.clientsMutex.Unlock()
+	b.workerMutex.Lock()
+	defer b.workerMutex.Unlock()
 
-	if _, ok := b.Clients[c.ID]; ok {
-		delete(b.Clients, c.ID)
-		if _, _ok := b.clientTopicNames[c.ID]; _ok {
-			delete(b.clientTopicNames, c.ID)
-		}
+	if _, ok := b.Workers[c.ID]; ok {
+		delete(b.Workers, c.ID)
 		logger.Info("worker.disconnect", "worker", c.ID)
 	}
 }
@@ -185,6 +184,9 @@ func (b *Broker) idPump() {
 	}
 }
 
+/**
+TODO: This func should be removed.
+
 func (b *Broker) popToClients() {
 	for {
 		//TODO:
@@ -197,3 +199,4 @@ func (b *Broker) popToClients() {
 		time.Sleep(1 * time.Second)
 	}
 }
+**/
