@@ -54,7 +54,7 @@ func (w *Worker) Init() error {
 		w.connectedMutex.Unlock()
 	})
 
-	response, err := w.Client.Tell("loom.worker.init", w.ID, "test")
+	response, err := w.Client.Tell("loom.server:worker.connect", w.ID, "test")
 	if err != nil {
 		return err
 	}

@@ -60,7 +60,7 @@ func (b *Broker) Init() error {
 	}
 
 	//Register Worker RPC
-	b.kite.HandleFunc("loom.worker.init", b.HandleWorkerInit)
+	b.kite.HandleFunc("loom.server:worker.connect", b.HandleWorkerConnect)
 	b.kite.OnDisconnect(b.WorkerDisconnect)
 
 	//go b.popToClients()
@@ -68,7 +68,7 @@ func (b *Broker) Init() error {
 	return nil
 }
 
-func (b *Broker) HandleWorkerInit(r *kite.Request) (interface{}, error) {
+func (b *Broker) HandleWorkerConnect(r *kite.Request) (interface{}, error) {
 	args := r.Args.MustSlice()
 
 	workerId := args[0].MustString()
