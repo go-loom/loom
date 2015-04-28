@@ -1,7 +1,6 @@
 package server
 
 import (
-	"sync"
 	"testing"
 	"time"
 )
@@ -14,42 +13,21 @@ func TestTopicSimple(t *testing.T) {
 
 	topic := NewTopic("simple", 1*time.Second, store)
 	var id MessageID
-	m := NewMessage(id, 1)
+	m := NewMessage(id, []byte{'1'})
 	topic.PushMessage(m)
-	data := topic.PopMessage()
-	if data == nil {
+
+	m2, err := topic.store.GetMessage(m.ID)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if m2 == nil {
 		t.Errorf("data is nill,wants 1")
 	}
 
-	if data.Value.(int) != 1 {
+	if string(m2.Value) != "1" {
 		t.Errorf("data is not 1")
 	}
-}
-
-func _TestTopicPopBlock(t *testing.T) {
-	var wg sync.WaitGroup
-
-	store, _ := NewTopicStore("bolt", "/tmp", "simple")
-	store.Open()
-	defer store.Close()
-
-	topic := NewTopic("simple", 1*time.Second, store)
-	go func() {
-		var id MessageID
-		m := NewMessage(id, 1)
-		topic.PushMessage(m)
-	}()
-
-	go func() {
-		wg.Add(1)
-		m := topic.PopMessage()
-		if m.Value.(int) != 1 {
-			t.Errorf("PopMessage should be blocked %v", m)
-		}
-		wg.Done()
-	}()
-	wg.Wait()
-
 }
 
 func BenchmarkTopicPush(b *testing.B) {
@@ -61,7 +39,7 @@ func BenchmarkTopicPush(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		var id MessageID
-		m := NewMessage(id, i)
+		m := NewMessage(id, []byte{'1'})
 		topic.PushMessage(m)
 	}
 }

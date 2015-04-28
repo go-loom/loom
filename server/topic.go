@@ -10,6 +10,7 @@ import (
 type Topic struct {
 	Name                 string
 	Queue                Queue
+	Dispatcher           *Dispatcher
 	PendingTimeout       time.Duration
 	pendingCheckInterval time.Duration
 	waitingCh            chan interface{}
@@ -18,10 +19,12 @@ type Topic struct {
 }
 
 func NewTopic(name string, pendingTimeout time.Duration, store Store) *Topic {
+	dispatcher := NewDispatcher(name)
 
 	topic := &Topic{
 		Name:                 name,
 		Queue:                NewLLQueue(),
+		Dispatcher:           dispatcher,
 		PendingTimeout:       pendingTimeout,
 		pendingCheckInterval: 10 * time.Second,
 		waitingCh:            make(chan interface{}),
@@ -41,6 +44,7 @@ func (t *Topic) Init() error {
 		return nil
 	})
 
+	go t.msgDispatch()
 	go t.pendingChecker()
 
 	return err
@@ -49,17 +53,6 @@ func (t *Topic) Init() error {
 func (t *Topic) PushMessage(msg *Message) {
 	t.push(msg)
 	t.store.PutMessage(msg)
-}
-
-func (t *Topic) PopMessage() (msg *Message) {
-
-	msg = t.pop()
-
-	now := time.Now()
-	t.store.PutMessage(msg)
-	t.store.PutPendingMsgID(&now, msg.ID)
-
-	return
 }
 
 func (t *Topic) FinishMessage(id MessageID) error {
@@ -105,6 +98,21 @@ func (t *Topic) pop() (msg *Message) {
 
 	return
 
+}
+
+func (t *Topic) msgDispatch() {
+	for {
+		select {
+		case msg := <-t.Dispatcher.msgPushChan:
+			t.PushMessage(msg)
+		default:
+			msg := t.pop()
+			t.Dispatcher.msgPopChan <- msg
+			now := time.Now()
+			t.store.PutMessage(msg)
+			t.store.PutPendingMsgID(&now, msg.ID)
+		}
+	}
 }
 
 func (t *Topic) pendingChecker() {

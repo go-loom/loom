@@ -12,14 +12,14 @@ import (
 )
 
 type Broker struct {
-	ID          int64
-	DBPath      string
-	Topics      map[string]*Topic
-	kite        *kite.Kite
-	topicMutex  sync.Mutex
-	idChan      chan MessageID
-	Workers     map[string]*Worker
-	workerMutex sync.RWMutex
+	ID           int64
+	DBPath       string
+	Topics       map[string]*Topic
+	topicMutex   sync.Mutex
+	Workers      map[string]*Worker
+	workersMutex sync.RWMutex
+	kite         *kite.Kite
+	idChan       chan MessageID
 }
 
 func NewBroker(dbpath string, k *kite.Kite) *Broker {
@@ -28,9 +28,9 @@ func NewBroker(dbpath string, k *kite.Kite) *Broker {
 		ID:      1,
 		DBPath:  dbpath,
 		Topics:  make(map[string]*Topic),
+		Workers: make(map[string]*Worker),
 		idChan:  make(chan MessageID, 4096), // Buffer
 		kite:    k,
-		Workers: make(map[string]*Worker),
 	}
 
 	return b
@@ -61,7 +61,6 @@ func (b *Broker) Init() error {
 
 	//Register Worker RPC
 	b.kite.HandleFunc("loom.worker.init", b.HandleWorkerInit)
-	b.kite.HandleFunc("loom.worker.pop.message", b.HandleWorkerPopMessage)
 	b.kite.OnDisconnect(b.WorkerDisconnect)
 
 	//go b.popToClients()
@@ -77,33 +76,26 @@ func (b *Broker) HandleWorkerInit(r *kite.Request) (interface{}, error) {
 
 	r.Client.ID = workerId
 
-	b.workerMutex.Lock()
+	b.workersMutex.Lock()
+	defer b.workersMutex.Unlock()
 
-	w, ok := b.Workers[workerId]
-	if !ok {
-		w = NewConnectedWorker(workerId, topicName, r.Client)
-		b.Workers[workerId] = w
-	}
-	w.Connected = true
+	w := NewConnectedWorker(workerId, topicName, r.Client)
+	b.Workers[workerId] = w
 
-	b.workerMutex.Unlock()
+	topic := b.Topic(topicName)
+	topic.Dispatcher.AddWorker(w)
 
 	logger.Info("worker.init", "worker", workerId, "topic", topicName)
 	return true, nil
 }
 
-func (b *Broker) HandleWorkerPopMessage(r *kite.Request) (interface{}, error) {
-	topicName := r.Args.One().MustString()
-	msg := b.PopMessage(topicName)
-
-	return msg.JSON(), nil
-}
-
 func (b *Broker) WorkerDisconnect(c *kite.Client) {
-	b.workerMutex.Lock()
-	defer b.workerMutex.Unlock()
+	b.workersMutex.Lock()
+	defer b.workersMutex.Unlock()
 
-	if _, ok := b.Workers[c.ID]; ok {
+	if w, ok := b.Workers[c.ID]; ok {
+		topic := b.Topic(w.TopicName)
+		topic.Dispatcher.RemoveWorker(w)
 		delete(b.Workers, c.ID)
 		logger.Info("worker.disconnect", "worker", c.ID)
 	}
@@ -134,15 +126,9 @@ func (b *Broker) Topic(name string) *Topic {
 
 func (b *Broker) PushMessage(name string, value interface{}) (*Message, error) {
 	t := b.Topic(name)
-	msg := NewMessage(b.NewID(), value)
+	msg := NewMessage(b.NewID(), value.([]byte))
 	t.PushMessage(msg)
 	return msg, nil
-}
-
-func (b *Broker) PopMessage(name string) *Message {
-	t := b.Topic(name)
-	msg := t.PopMessage()
-	return msg
 }
 
 func (b *Broker) FinishMessage(name string, id MessageID) error {

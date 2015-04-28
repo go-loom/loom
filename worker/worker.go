@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/koding/kite"
 	"github.com/mgutz/logxi/v1"
-	"gopkg.in/loom.v1/server"
 	"sync"
 )
 
@@ -65,39 +64,18 @@ func (w *Worker) Init() error {
 		return fmt.Errorf("registering worker to server is failed")
 	}
 
-	w.kite.HandleFunc("loom.worker.pop", w.HandleMessagePop)
-
-	go w.msgPump()
+	w.kite.HandleFunc("loom.worker:message.pop", w.HandleMessagePop)
 
 	return nil
 }
 
-func (w *Worker) msgPump() {
-	for {
-		w.connectedMutex.RLock()
-		connected := w.connected
-		w.connectedMutex.RUnlock()
-
-		if connected {
-			resp, err := w.Client.Tell("loom.worker.pop.message", "test")
-			if err != nil {
-				w.logger.Debug("pop.message", "err", err, "connected", connected)
-			} else {
-				msg := resp.MustMap()
-				w.logger.Debug("pop.message", "msg", msg, "err", err, "connected", connected)
-			}
-		}
-	}
-}
-
 func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
-	var msg server.Message
-	err := r.Args.One().Unmarshal(msg)
+	msg, err := r.Args.One().Map()
 	if err != nil {
 		return nil, err
 	}
 
 	w.logger.Debug("popmessage", "msg", msg)
 
-	return w.ID, nil
+	return true, nil
 }

@@ -25,7 +25,7 @@ func TestBoltStorePut(t *testing.T) {
 		os.Remove(s.(*BoltStore).Path)
 	}()
 
-	m := NewMessage(b.NewID(), 1)
+	m := NewMessage(b.NewID(), []byte{'1'})
 
 	err = s.PutMessage(m)
 	if err != nil {

@@ -8,4 +8,4 @@ RUN go install -v
 ENV LOGXI "*=INF"
 
 ENTRYPOINT ["loom.v1"]
-CMD ["loom.v1"]
+CMD ["-h"]
