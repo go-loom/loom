@@ -25,3 +25,6 @@ _testmain.go
 
 loom.v1
 loom
+
+*.swp
+*.swo
