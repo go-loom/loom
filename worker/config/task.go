@@ -1,6 +1,8 @@
 package config
 
-import ()
+import (
+	"fmt"
+)
 
 type Task struct {
 	Name    string
@@ -10,8 +12,8 @@ type Task struct {
 	Timeout string
 	Retry   Retry
 
-	startState *TaskState
-	endStates  *TaskState
+	startStates []*TaskState
+	endStates   []*TaskState
 }
 
 type TaskDefault struct {
@@ -25,23 +27,59 @@ type TaskState struct {
 	State string
 }
 
-func (t *Task) StartState() *TaskState {
-	if t.startState != nil {
-		return t.startState
+func (t *Task) StartStates() []*TaskState {
+	if len(t.startStates) > 0 {
+		return t.startStates
 	}
 
 	switch when := t.When.(type) {
 	case string:
-		t.startState = NewTaskState(when, "START")
-		return t.startState
-	case map[string]map[string]string:
+		var ts *TaskState
+		if when == "" {
+			ts = NewTaskState("JOB", "START")
+		} else {
+			ts = NewTaskState(when, "DONE")
+		}
+		t.startStates = append(t.startStates, ts)
+	case map[interface{}]interface{}:
 		if s, ok := when["state"]; ok {
-			for k, v := range s {
-				t.startState = NewTaskState(k, v)
+			for k, v := range s.(map[interface{}]interface{}) {
+				ts := NewTaskState(k.(string), v.(string))
+				t.startStates = append(t.startStates, ts)
 			}
 		}
+	default:
+		fmt.Println("ERROR") //TODO: raise panic!
 	}
-	return t.startState
+	return t.startStates
+}
+
+func (t *Task) EndStates() []*TaskState {
+	if len(t.endStates) > 0 {
+		return t.endStates
+	}
+
+	switch then := t.Then.(type) {
+	case string:
+		var ts *TaskState
+		if then == "" {
+			ts = NewTaskState("JOB", "DONE")
+		} else {
+			ts = NewTaskState(then, "DONE")
+		}
+		t.endStates = append(t.endStates, ts)
+	case map[interface{}]interface{}:
+		if s, ok := then["state"]; ok {
+			for k, v := range s.(map[interface{}]interface{}) {
+				ts := NewTaskState(k.(string), v.(string))
+				t.endStates = append(t.endStates, ts)
+			}
+		}
+
+	default:
+		fmt.Println("ERROR")
+	}
+	return t.endStates
 }
 
 func NewTaskState(name, state string) *TaskState {
