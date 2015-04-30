@@ -37,6 +37,8 @@ func (t *Task) StartStates() []*TaskState {
 		var ts *TaskState
 		if when == "" {
 			ts = NewTaskState("JOB", "START")
+		} else if when == "JOB" {
+			ts = NewTaskState(when, "START")
 		} else {
 			ts = NewTaskState(when, "DONE")
 		}
@@ -85,4 +87,8 @@ func (t *Task) EndStates() []*TaskState {
 func NewTaskState(name, state string) *TaskState {
 	ts := &TaskState{name, state}
 	return ts
+}
+
+func (ts *TaskState) String() string {
+	return fmt.Sprintf("name: %s state:%s", ts.Name, ts.State)
 }
