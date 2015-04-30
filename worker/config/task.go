@@ -5,6 +5,7 @@ import (
 )
 
 type Task struct {
+	templateReader
 	Name    string
 	Cmd     string
 	When    interface{}
@@ -17,6 +18,7 @@ type Task struct {
 }
 
 type TaskDefault struct {
+	templateReader
 	Retry   Retry
 	Timeout string
 	Vars    map[string]string
