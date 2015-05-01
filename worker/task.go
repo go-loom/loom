@@ -1,8 +1,6 @@
 package worker
 
-import (
-	"errors"
-)
+import ()
 
 type Task interface {
 	Name() string
@@ -13,6 +11,11 @@ type Task interface {
 
 type Tasks []Task
 
-func (t Tasks) Err() error {
-	return errors.New("TODO")
+func (tasks Tasks) Err() error {
+	for _, t := range tasks {
+		if t.Err() != nil {
+			return t.Err()
+		}
+	}
+	return nil
 }

@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"github.com/mgutz/logxi/v1"
 	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/worker/config"
 )
@@ -14,6 +15,7 @@ type Work struct {
 	taskConfigs []*config.Task
 	tasks       Tasks
 	running     bool
+	logger      log.Logger
 }
 
 func NewWork(ctx context.Context, job Job, tasks []*config.Task) *Work {
@@ -23,6 +25,7 @@ func NewWork(ctx context.Context, job Job, tasks []*config.Task) *Work {
 		cancelFunc:  cancelFunc,
 		Job:         job,
 		taskConfigs: tasks,
+		logger:      log.New("work#" + job["ID"].(string)),
 	}
 
 	return w
@@ -39,17 +42,15 @@ func (w *Work) Done() <-chan struct{} {
 
 func (w *Work) Run() {
 	go func() {
+		w.logger.Info("start")
 		w.running = true
 		for workFunc := w.workStartJob; workFunc != nil; {
 			workFunc = workFunc()
 		}
 		w.Cancel()
+		w.logger.Info("end")
 		w.running = false
 	}()
-}
-
-func (w *Work) Ok() bool {
-	return false
 }
 
 func (w *Work) Err() error {
@@ -75,12 +76,13 @@ func (w *Work) workStartJob() WorkFunc {
 		}
 	}
 
-	/*
-		taskRunner := NewTaskRunner(tasks)
-		taskRunner.Run() //Wait
-		if taskRunner.Error() != nil {
-		}
-	*/
+	w.logger.Debug("tasks", "tasks", tasks)
+	taskRunners := NewTaskRunners(tasks)
+	taskRunners.Run() //Wait
+
+	for _, tr := range taskRunners {
+		w.tasks = append(w.tasks, tr)
+	}
 
 	return nil
 }

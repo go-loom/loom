@@ -49,10 +49,6 @@ func TestNewWork(t *testing.T) {
 		t.Error("The work is processing")
 	}
 
-	if !work.Ok() {
-		t.Errorf("The work is not ok %v", work.Err())
-	}
-
 	for _, task := range work.Tasks() {
 		if !task.Ok() {
 			t.Errorf("task: %v err: %v output: %v", task.Name(), task.Err(), task.Output())
