@@ -5,11 +5,26 @@ import (
 	"errors"
 	"fmt"
 	"gopkg.in/yaml.v2"
+	"io/ioutil"
 )
 
 var (
 	ConfigNoTasks = errors.New("config has no tasks")
 )
+
+func ReadFile(path string) (*Worker, error) {
+	yamlc, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	worker, werr := Read(yamlc)
+	if werr != nil {
+		return nil, werr
+	}
+	return worker, nil
+
+}
 
 func Read(yamlcontent []byte) (*Worker, error) {
 

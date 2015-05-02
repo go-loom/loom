@@ -45,6 +45,10 @@ func main() {
 					Name:  "serverurl,s",
 					Value: "http://localhost:7000/kite",
 				},
+				cli.StringFlag{
+					Name:  "config,c",
+					Value: "./worker.yaml",
+				},
 			},
 		},
 	}
@@ -60,6 +64,7 @@ func ServerAction(c *cli.Context) {
 
 func WorkerAction(c *cli.Context) {
 	serverURL := c.String("serverurl")
-	worker.Main(serverURL, VERSION)
+	workerConfigFile := c.String("config")
+	worker.Main(serverURL, workerConfigFile, VERSION)
 
 }

@@ -54,7 +54,7 @@ tasks:
 		t.Error("The work is processing")
 	}
 
-	for _, task := range work.Tasks() {
+	for _, task := range work.tasks {
 		if !task.Ok() {
 			t.Errorf("task: %v err: %v output: %v", task.Name(), task.Err(), task.Output())
 		} else if task.Name() == "hello" {
@@ -101,7 +101,7 @@ tasks:
 		t.Error("The work is processing")
 	}
 
-	for _, task := range work.Tasks() {
+	for _, task := range work.tasks {
 		if !task.Ok() {
 			t.Errorf("task: %v err: %v output: %v", task.Name(), task.Err(), task.Output())
 		} else if task.Name() == "hello" {

@@ -9,12 +9,15 @@ import (
 type WorkFunc func() WorkFunc
 
 type Work struct {
+	ID           string
 	ctx          context.Context
 	cancelFunc   context.CancelFunc
 	Job          Job
 	workerConfig *config.Worker
 	tasks        Tasks
 	taskRunners  *TaskRunners
+	onStartFuncs []func(*Work)
+	onEndFuncs   []func(*Work)
 	running      bool
 	logger       log.Logger
 }
@@ -22,6 +25,7 @@ type Work struct {
 func NewWork(ctx context.Context, job Job, workerConfig *config.Worker) *Work {
 	_ctx, cancelFunc := context.WithCancel(ctx)
 	w := &Work{
+		ID:           job["ID"].(string),
 		ctx:          _ctx,
 		cancelFunc:   cancelFunc,
 		Job:          job,
@@ -45,10 +49,21 @@ func (w *Work) Run() {
 	go func() {
 		w.logger.Info("start")
 		w.running = true
+
+		//onStart
+		for _, f := range w.onStartFuncs {
+			f(w)
+		}
+
 		for workFunc := w.workJobStart; workFunc != nil; {
 			workFunc = workFunc()
 		}
 		w.Cancel()
+
+		//onFinish
+		for _, f := range w.onEndFuncs {
+			f(w)
+		}
 		w.logger.Info("end")
 		w.running = false
 	}()
@@ -62,8 +77,12 @@ func (w *Work) Running() bool {
 	return w.running
 }
 
-func (w *Work) Tasks() Tasks {
-	return w.tasks
+func (w *Work) OnStart(_func func(*Work)) {
+	w.onStartFuncs = append(w.onStartFuncs, _func)
+}
+
+func (w *Work) OnEnd(_func func(*Work)) {
+	w.onEndFuncs = append(w.onEndFuncs, _func)
 }
 
 func (w *Work) workJobStart() WorkFunc {

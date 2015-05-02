@@ -24,6 +24,11 @@ func NewConnectedWorker(id, topicName string, client *kite.Client) *Worker {
 
 func (w *Worker) SendMessage(msg *Message) bool {
 	resp, err := w.Client.Tell("loom.worker:message.pop", msg.JSON())
+	//TODO: Need better error handling
+	if err != nil {
+		return false
+	}
+
 	ok, okerr := resp.Bool()
 	if err != nil || okerr != nil {
 		return false

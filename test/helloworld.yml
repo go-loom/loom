@@ -1,0 +1,12 @@
+name: helloworld
+version: 0.0.1
+topic: helloworld
+tasks:
+    - name: hello
+      cmd: echo hello
+      when: JOB
+      then: hello
+    - name: world
+      cmd: echo world
+      when: hello
+      then: JOB

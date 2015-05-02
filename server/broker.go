@@ -61,9 +61,8 @@ func (b *Broker) Init() error {
 
 	//Register Worker RPC
 	b.kite.HandleFunc("loom.server:worker.connect", b.HandleWorkerConnect)
+	b.kite.HandleFunc("loom.server:worker.job", b.HandleWorkerJobFeedback)
 	b.kite.OnDisconnect(b.WorkerDisconnect)
-
-	//go b.popToClients()
 
 	return nil
 }
@@ -87,6 +86,25 @@ func (b *Broker) HandleWorkerConnect(r *kite.Request) (interface{}, error) {
 
 	logger.Info("worker.init", "worker", workerId, "topic", topicName)
 	return true, nil
+}
+
+func (b *Broker) HandleWorkerJobFeedback(r *kite.Request) (interface{}, error) {
+	args := r.Args.MustSlice()
+	msgIdStr := args[0].MustString()
+	topic := args[1].MustString()
+	state := args[2].MustString()
+
+	if state == "done" {
+		topic := b.Topic(topic)
+		var msgId MessageID
+		copy(msgId[:], []byte(msgIdStr))
+		err := topic.FinishMessage(msgId)
+		if err != nil {
+			logger.Error("HandleWorkerJobFeedback", "err", err, "id", string(msgId[:]))
+		}
+	}
+
+	return nil, nil
 }
 
 func (b *Broker) WorkerDisconnect(c *kite.Client) {
@@ -169,20 +187,3 @@ func (b *Broker) idPump() {
 		}
 	}
 }
-
-/**
-TODO: This func should be removed.
-
-func (b *Broker) popToClients() {
-	for {
-		//TODO:
-		for id, c := range b.Clients {
-			topicName := b.clientTopicNames[id]
-			msg := b.PopMessage(topicName)
-			c.Tell("loom.worker.pop", msg)
-			logger.Debug("worker.pop", "worker", id, "msgid", string(msg.ID[:]))
-		}
-		time.Sleep(1 * time.Second)
-	}
-}
-**/

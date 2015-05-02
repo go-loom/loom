@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -51,21 +50,24 @@ func (t *Topic) Init() error {
 }
 
 func (t *Topic) PushMessage(msg *Message) {
-	t.push(msg)
 	t.store.PutMessage(msg)
+	t.push(msg)
 }
 
 func (t *Topic) FinishMessage(id MessageID) error {
-	msg, err := t.store.GetMessage(id)
-	if err != nil {
-		return err
-	}
+	//TODO:
+	/*
+		msg, err := t.store.GetMessage(id)
+		if err != nil {
+			return err
+		}
 
-	if msg.State == MSG_ENQUEUED {
-		return fmt.Errorf("Message complete failed")
-	}
+			if msg.State == MSG_ENQUEUED {
+				return fmt.Errorf("Message complete failed")
+			}
+	*/
 
-	err = t.store.RemoveMessage(id)
+	err := t.store.RemoveMessage(id)
 	return err
 }
 
