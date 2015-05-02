@@ -3,6 +3,7 @@ package worker
 import (
 	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/worker/config"
+	"strings"
 	"testing"
 )
 
@@ -12,7 +13,7 @@ version: 1.0.0
 topic: test
 tasks:
 	- name: hello
-	  cmd: echo hello {{ .ID }}
+	  cmd: echo {{ .ID }}
 	  when: JOB
 	  then: 
 	  	state:
@@ -32,7 +33,7 @@ tasks:
 }
 
 func TestNewWork(t *testing.T) {
-	job := NewJob("test", map[string]interface{}{"URL": "http://example.com"})
+	job := NewJob("hello", map[string]interface{}{"URL": "http://example.com"})
 	workerConfig := readYamlConfig()
 	if workerConfig == nil {
 		t.Error("worker config failed")
@@ -55,6 +56,14 @@ func TestNewWork(t *testing.T) {
 	for _, task := range work.Tasks() {
 		if !task.Ok() {
 			t.Errorf("task: %v err: %v output: %v", task.Name(), task.Err(), task.Output())
+		} else if task.Name() == "hello" {
+			if !strings.Contains(task.Output(), "hello") {
+				t.Errorf("task: %v err: %v output: %v", task.Name(), task.Err(), task.Output())
+			}
+		} else if task.Name() == "world" {
+			if !strings.Contains(task.Output(), "world") {
+				t.Errorf("task: %v err: %v output: %v", task.Name(), task.Err(), task.Output())
+			}
 		}
 	}
 }

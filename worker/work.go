@@ -14,7 +14,7 @@ type Work struct {
 	Job          Job
 	workerConfig *config.Worker
 	tasks        Tasks
-	taskRunners  TaskRunners
+	taskRunners  *TaskRunners
 	running      bool
 	logger       log.Logger
 }
@@ -88,10 +88,10 @@ func (w *Work) workJobStart() WorkFunc {
 		}
 	}
 
-	w.taskRunners = NewTaskRunners(tasks)
+	w.taskRunners = NewTaskRunners(tasks, w.Job)
 	w.taskRunners.Run() //Wait
 
-	for _, tr := range w.taskRunners {
+	for _, tr := range w.taskRunners.Runners {
 		w.tasks = append(w.tasks, tr)
 	}
 
@@ -101,7 +101,7 @@ func (w *Work) workJobStart() WorkFunc {
 func (w *Work) workAfterTask() WorkFunc {
 	var tasks []*config.Task
 
-	for _, tr := range w.taskRunners {
+	for _, tr := range w.taskRunners.Runners {
 		for _, state := range tr.task.EndStates() {
 			if w.logger.IsDebug() {
 				w.logger.Debug("workAfterTask", "name", state.Name, "state", state.State)
@@ -120,10 +120,10 @@ func (w *Work) workAfterTask() WorkFunc {
 		return w.workJobDone
 	}
 
-	w.taskRunners = NewTaskRunners(tasks)
+	w.taskRunners = NewTaskRunners(tasks, w.Job)
 	w.taskRunners.Run() //Wait
 
-	for _, tr := range w.taskRunners {
+	for _, tr := range w.taskRunners.Runners {
 		w.tasks = append(w.tasks, tr)
 	}
 
@@ -139,10 +139,10 @@ func (w *Work) workJobDone() WorkFunc {
 		return nil
 	}
 
-	w.taskRunners = NewTaskRunners(tasks)
+	w.taskRunners = NewTaskRunners(tasks, w.Job)
 	w.taskRunners.Run() //Wait
 
-	for _, tr := range w.taskRunners {
+	for _, tr := range w.taskRunners.Runners {
 		w.tasks = append(w.tasks, tr)
 	}
 

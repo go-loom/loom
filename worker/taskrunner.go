@@ -1,8 +1,10 @@
 package worker
 
 import (
+	"fmt"
 	"gopkg.in/loom.v1/worker/config"
 	"os/exec"
+	"sync"
 )
 
 type TaskRunner struct {
@@ -11,33 +13,52 @@ type TaskRunner struct {
 	output string
 }
 
-type TaskRunners []*TaskRunner
+type TaskRunners struct {
+	Job     Job
+	Runners []*TaskRunner
+}
 
-func NewTaskRunners(tasks []*config.Task) TaskRunners {
-	trs := make(TaskRunners, 0, len(tasks))
+func NewTaskRunners(tasks []*config.Task, job Job) *TaskRunners {
+	trs := &TaskRunners{
+		Job:     job,
+		Runners: make([]*TaskRunner, 0, len(tasks)),
+	}
 	for _, t := range tasks {
 
 		tr := &TaskRunner{
 			task: t,
 		}
-		trs = append(trs, tr)
+		trs.Runners = append(trs.Runners, tr)
 	}
 	return trs
 }
 
 func (trs TaskRunners) Run() {
-	go func() {
+	var wg sync.WaitGroup
+	wg.Add(len(trs.Runners))
 
-	}()
+	for _, tr := range trs.Runners {
+		go func() {
+			tr.Run(trs.Job)
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 }
 
-func (tr *TaskRunner) Run() {
+func (tr *TaskRunner) Run(job Job) {
 	if tr.task.Cmd != "" {
-		cmd := exec.Command("bash", "-c", tr.task.Cmd)
+		cmdstr, err := tr.task.Read(tr.task.Cmd, job)
+		if err != nil {
+			tr.err = err
+			return
+		}
+		cmd := exec.Command("bash", "-c", cmdstr)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			tr.err = err
 		}
+		fmt.Printf("out: %v\n", string(out))
 		tr.output = string(out)
 	}
 }
@@ -58,5 +79,5 @@ func (tr *TaskRunner) Err() error {
 }
 
 func (tr *TaskRunner) Output() string {
-	return ""
+	return tr.output
 }
