@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"fmt"
 	"gopkg.in/loom.v1/worker/config"
 	"os/exec"
 	"sync"
@@ -24,7 +23,6 @@ func NewTaskRunners(tasks []*config.Task, job Job) *TaskRunners {
 		Runners: make([]*TaskRunner, 0, len(tasks)),
 	}
 	for _, t := range tasks {
-
 		tr := &TaskRunner{
 			task: t,
 		}
@@ -36,12 +34,11 @@ func NewTaskRunners(tasks []*config.Task, job Job) *TaskRunners {
 func (trs TaskRunners) Run() {
 	var wg sync.WaitGroup
 	wg.Add(len(trs.Runners))
-
 	for _, tr := range trs.Runners {
-		go func() {
+		go func(tr *TaskRunner) {
 			tr.Run(trs.Job)
 			wg.Done()
-		}()
+		}(tr)
 	}
 	wg.Wait()
 }
@@ -58,7 +55,6 @@ func (tr *TaskRunner) Run(job Job) {
 		if err != nil {
 			tr.err = err
 		}
-		fmt.Printf("out: %v\n", string(out))
 		tr.output = string(out)
 	}
 }

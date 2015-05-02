@@ -7,7 +7,21 @@ import (
 	"testing"
 )
 
-func readYamlConfig() *config.Worker {
+func testRunWork(y []byte, job Job) (*Work, error) {
+	workerConfig, err := config.Read(y)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+	work := NewWork(ctx, job, workerConfig)
+	work.Run()
+	<-work.Done()
+	return work, nil
+}
+
+func TestWorkTasks(t *testing.T) {
+	job := NewJob("hello", map[string]interface{}{"URL": "http://example.com"})
 	y := []byte(`name: helloworld
 version: 1.0.0
 topic: test
@@ -24,26 +38,13 @@ tasks:
 	  then: JOB
 `)
 
-	worker, err := config.Read(y)
+	work, err := testRunWork(y, job)
 	if err != nil {
-		return nil
+		t.Error(err)
+		if work == nil {
+			return
+		}
 	}
-
-	return worker
-}
-
-func TestNewWork(t *testing.T) {
-	job := NewJob("hello", map[string]interface{}{"URL": "http://example.com"})
-	workerConfig := readYamlConfig()
-	if workerConfig == nil {
-		t.Error("worker config failed")
-		return
-	}
-
-	ctx := context.Background()
-	work := NewWork(ctx, job, workerConfig)
-	work.Run()
-	<-work.Done()
 
 	if work.Err() != nil {
 		t.Error(work.Err())
@@ -66,4 +67,52 @@ func TestNewWork(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestWorkConcurrentTasks(t *testing.T) {
+	job := NewJob("hello", map[string]interface{}{"URL": "http://example.com"})
+	y := []byte(`name: helloworld
+version: 1.0.0
+topic: test
+tasks:
+	- name: hello
+	  cmd: echo {{ .ID }}
+	  when: JOB
+	  then: JOB
+	- name: world
+	  cmd: echo world
+	  when: JOB
+	  then: JOB
+`)
+
+	work, err := testRunWork(y, job)
+	if err != nil {
+		t.Error(err)
+		if work == nil {
+			return
+		}
+	}
+
+	if work.Err() != nil {
+		t.Error(work.Err())
+	}
+
+	if work.Running() {
+		t.Error("The work is processing")
+	}
+
+	for _, task := range work.Tasks() {
+		if !task.Ok() {
+			t.Errorf("task: %v err: %v output: %v", task.Name(), task.Err(), task.Output())
+		} else if task.Name() == "hello" {
+			if !strings.Contains(task.Output(), "hello") {
+				t.Errorf("task: %v err: %v output: %v", task.Name(), task.Err(), task.Output())
+			}
+		} else if task.Name() == "world" {
+			if !strings.Contains(task.Output(), "world") {
+				t.Errorf("task: %v err: %v output: %v", task.Name(), task.Err(), task.Output())
+			}
+		}
+	}
+
 }

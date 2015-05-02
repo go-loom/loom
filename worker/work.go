@@ -104,7 +104,8 @@ func (w *Work) workAfterTask() WorkFunc {
 	for _, tr := range w.taskRunners.Runners {
 		for _, state := range tr.task.EndStates() {
 			if w.logger.IsDebug() {
-				w.logger.Debug("workAfterTask", "name", state.Name, "state", state.State)
+				w.logger.Debug("workAfterTask", "findtask", tr.task.Name,
+					"name", state.Name, "state", state.State)
 			}
 			tasks = w.workerConfig.FindTasksWhen(state.Name, state.State, tasks)
 		}
