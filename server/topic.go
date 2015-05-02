@@ -55,20 +55,19 @@ func (t *Topic) PushMessage(msg *Message) {
 }
 
 func (t *Topic) FinishMessage(id MessageID) error {
-	//TODO:
-	/*
-		msg, err := t.store.GetMessage(id)
-		if err != nil {
-			return err
-		}
+	msg, err := t.store.GetMessage(id)
+	if err != nil {
+		return err
+	}
 
-			if msg.State == MSG_ENQUEUED {
-				return fmt.Errorf("Message complete failed")
-			}
-	*/
+	msg.State = MSG_FINISHED
 
-	err := t.store.RemoveMessage(id)
-	return err
+	err = t.store.PutMessage(msg)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (t *Topic) push(msg *Message) {

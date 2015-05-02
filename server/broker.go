@@ -149,6 +149,17 @@ func (b *Broker) PushMessage(name string, value interface{}) (*Message, error) {
 	return msg, nil
 }
 
+func (b *Broker) GetMessage(name string, id MessageID) (*Message, error) {
+	t := b.Topic(name)
+
+	msg, err := t.store.GetMessage(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return msg, nil
+}
+
 func (b *Broker) FinishMessage(name string, id MessageID) error {
 	t := b.Topic(name)
 	err := t.FinishMessage(id)

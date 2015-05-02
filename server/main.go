@@ -25,6 +25,7 @@ func Main(port int, dbpath string, version string) {
 
 	restRouter := httprouter.New()
 	restRouter.POST("/v1/queues/:queue", PushHandler)
+	restRouter.GET("/v1/queues/:queue/:id", GetHandler)
 	restRouter.DELETE("/v1/queues/:queue/:id", DeleteHandler)
 
 	k.HandleHTTP("/v1/queues/", restRouter)

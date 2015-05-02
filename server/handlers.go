@@ -25,6 +25,30 @@ func PushHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		"id":      string(msg.ID[:]),
 		"value":   string(msg.Value),
 		"created": msg.Created,
+		"state":   msg.State,
+	})
+
+	return
+}
+
+func GetHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	queueName := ps.ByName("queue")
+	id := ps.ByName("id")
+
+	var msgId MessageID
+	copy(msgId[:], id)
+
+	msg, err := broker.GetMessage(queueName, msgId)
+	if err != nil {
+		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
+		return
+	}
+
+	send(w, http.StatusCreated, Json{
+		"id":      string(msg.ID[:]),
+		"value":   string(msg.Value),
+		"created": msg.Created,
+		"state":   msg.State,
 	})
 
 	return
