@@ -12,11 +12,15 @@ version: 1.0.0
 topic: test
 tasks:
 	- name: hello
-	  cmd: echo hello world ID:{{ .ID }}
+	  cmd: echo hello {{ .ID }}
 	  when: JOB
 	  then: 
 	  	state:
 			hello: DONE
+	- name: world
+	  cmd: echo world
+	  when: hello
+	  then: JOB
 `)
 
 	worker, err := config.Read(y)
@@ -32,12 +36,11 @@ func TestNewWork(t *testing.T) {
 	workerConfig := readYamlConfig()
 	if workerConfig == nil {
 		t.Error("worker config failed")
+		return
 	}
 
-	tasks := workerConfig.Tasks
-
 	ctx := context.Background()
-	work := NewWork(ctx, job, tasks)
+	work := NewWork(ctx, job, workerConfig)
 	work.Run()
 	<-work.Done()
 

@@ -9,23 +9,24 @@ import (
 type WorkFunc func() WorkFunc
 
 type Work struct {
-	ctx         context.Context
-	cancelFunc  context.CancelFunc
-	Job         Job
-	taskConfigs []*config.Task
-	tasks       Tasks
-	running     bool
-	logger      log.Logger
+	ctx          context.Context
+	cancelFunc   context.CancelFunc
+	Job          Job
+	workerConfig *config.Worker
+	tasks        Tasks
+	taskRunners  TaskRunners
+	running      bool
+	logger       log.Logger
 }
 
-func NewWork(ctx context.Context, job Job, tasks []*config.Task) *Work {
+func NewWork(ctx context.Context, job Job, workerConfig *config.Worker) *Work {
 	_ctx, cancelFunc := context.WithCancel(ctx)
 	w := &Work{
-		ctx:         _ctx,
-		cancelFunc:  cancelFunc,
-		Job:         job,
-		taskConfigs: tasks,
-		logger:      log.New("work#" + job["ID"].(string)),
+		ctx:          _ctx,
+		cancelFunc:   cancelFunc,
+		Job:          job,
+		workerConfig: workerConfig,
+		logger:       log.New("work#" + job["ID"].(string)),
 	}
 
 	return w
@@ -44,7 +45,7 @@ func (w *Work) Run() {
 	go func() {
 		w.logger.Info("start")
 		w.running = true
-		for workFunc := w.workStartJob; workFunc != nil; {
+		for workFunc := w.workJobStart; workFunc != nil; {
 			workFunc = workFunc()
 		}
 		w.Cancel()
@@ -65,9 +66,10 @@ func (w *Work) Tasks() Tasks {
 	return w.tasks
 }
 
-func (w *Work) workStartJob() WorkFunc {
+func (w *Work) workJobStart() WorkFunc {
+
 	var tasks []*config.Task
-	for _, t := range w.taskConfigs {
+	for _, t := range w.workerConfig.Tasks {
 		for _, s := range t.StartStates() {
 			if s.Name == "JOB" && s.State == "START" {
 				tasks = append(tasks, t)
@@ -76,11 +78,71 @@ func (w *Work) workStartJob() WorkFunc {
 		}
 	}
 
-	w.logger.Debug("tasks", "tasks", tasks)
-	taskRunners := NewTaskRunners(tasks)
-	taskRunners.Run() //Wait
+	if len(tasks) <= 0 {
+		return w.workJobDone
+	}
 
-	for _, tr := range taskRunners {
+	if w.logger.IsDebug() {
+		for _, t := range tasks {
+			w.logger.Debug("workJobStart", "task", t.Name, "when", t.StartStates())
+		}
+	}
+
+	w.taskRunners = NewTaskRunners(tasks)
+	w.taskRunners.Run() //Wait
+
+	for _, tr := range w.taskRunners {
+		w.tasks = append(w.tasks, tr)
+	}
+
+	return w.workAfterTask
+}
+
+func (w *Work) workAfterTask() WorkFunc {
+	var tasks []*config.Task
+
+	for _, tr := range w.taskRunners {
+		for _, state := range tr.task.EndStates() {
+			if w.logger.IsDebug() {
+				w.logger.Debug("workAfterTask", "name", state.Name, "state", state.State)
+			}
+			tasks = w.workerConfig.FindTasksWhen(state.Name, state.State, tasks)
+		}
+	}
+
+	if w.logger.IsDebug() {
+		for _, t := range tasks {
+			w.logger.Debug("workAfterTask", "task", t.Name, "when", t.StartStates())
+		}
+	}
+
+	if len(tasks) <= 0 {
+		return w.workJobDone
+	}
+
+	w.taskRunners = NewTaskRunners(tasks)
+	w.taskRunners.Run() //Wait
+
+	for _, tr := range w.taskRunners {
+		w.tasks = append(w.tasks, tr)
+	}
+
+	return w.workAfterTask
+}
+
+func (w *Work) workJobDone() WorkFunc {
+	w.logger.Debug("workJobDone")
+
+	var tasks []*config.Task
+	tasks = w.workerConfig.FindTasksWhen("JOB", "DONE", tasks)
+	if len(tasks) <= 0 {
+		return nil
+	}
+
+	w.taskRunners = NewTaskRunners(tasks)
+	w.taskRunners.Run() //Wait
+
+	for _, tr := range w.taskRunners {
 		w.tasks = append(w.tasks, tr)
 	}
 

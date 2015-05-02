@@ -1,7 +1,5 @@
 package worker
 
-import ()
-
 type Task interface {
 	Name() string
 	Ok() bool

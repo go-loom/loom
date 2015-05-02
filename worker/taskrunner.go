@@ -2,10 +2,13 @@ package worker
 
 import (
 	"gopkg.in/loom.v1/worker/config"
+	"os/exec"
 )
 
 type TaskRunner struct {
-	task *config.Task
+	task   *config.Task
+	err    error
+	output string
 }
 
 type TaskRunners []*TaskRunner
@@ -28,16 +31,30 @@ func (trs TaskRunners) Run() {
 	}()
 }
 
+func (tr *TaskRunner) Run() {
+	if tr.task.Cmd != "" {
+		cmd := exec.Command("bash", "-c", tr.task.Cmd)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			tr.err = err
+		}
+		tr.output = string(out)
+	}
+}
+
 func (tr *TaskRunner) Name() string {
 	return tr.task.Name
 }
 
 func (tr *TaskRunner) Ok() bool {
+	if tr.err == nil {
+		return true
+	}
 	return false
 }
 
 func (tr *TaskRunner) Err() error {
-	return nil
+	return tr.err
 }
 
 func (tr *TaskRunner) Output() string {
