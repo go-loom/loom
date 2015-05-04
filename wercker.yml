@@ -1,1 +1,2 @@
-box: wercker/golang
+#box: wercker/golang
+box: attilaolah/godep
