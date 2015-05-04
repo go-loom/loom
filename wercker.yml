@@ -1,2 +1,6 @@
-box: wercker/golang
-#box: attilaolah/godep
+#box: wercker/golang
+box: attilaolah/godep
+build:
+    steps:
+        - wercker/setup-go-workspace:
+            package-dir: gopkg.in/loom.v1
