@@ -1,6 +1,14 @@
 #box: wercker/golang
-box: attilaolah/godep
+box: attilaolah/godep@1.113.0
 build:
     steps:
         - wercker/setup-go-workspace:
             package-dir: gopkg.in/loom.v1
+        - script:
+            name: godep go build
+            code: |
+                godep go build ./...
+        - script:
+            name: godep go test
+            code: |
+                godep go test ./...
