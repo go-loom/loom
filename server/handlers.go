@@ -44,11 +44,19 @@ func GetHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
+	topic := broker.Topic(queueName)
+	tasks, err := topic.store.LoadTasks(msgId)
+	if err != nil {
+		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
+		return
+	}
+
 	send(w, http.StatusCreated, Json{
 		"id":      string(msg.ID[:]),
 		"value":   string(msg.Value),
 		"created": msg.Created,
 		"state":   msg.State,
+		"tasks":   tasks,
 	})
 
 	return

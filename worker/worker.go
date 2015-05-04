@@ -91,7 +91,7 @@ func (w *Worker) tellHelloToServer() error {
 }
 
 func (w *Worker) tellJobDoneToServer(work *Work) error {
-	_, err := w.Client.Tell("loom.server:worker.job", work.Job["ID"], w.workerConfig.Topic, "done")
+	_, err := w.Client.Tell("loom.server:worker.job", work.Job["ID"], w.workerConfig.Topic, "done", work.tasks.MapInfo(), w.ID)
 	if err != nil {
 		logger.Error("tellJobDoneToServer", "err", err)
 		return err

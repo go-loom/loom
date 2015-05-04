@@ -93,12 +93,21 @@ func (b *Broker) HandleWorkerJobFeedback(r *kite.Request) (interface{}, error) {
 	msgIdStr := args[0].MustString()
 	topic := args[1].MustString()
 	state := args[2].MustString()
+	var tasks *[]map[string]interface{}
+	args[3].MustUnmarshal(&tasks)
+	workerId := args[4].MustString()
 
 	if state == "done" {
 		topic := b.Topic(topic)
 		var msgId MessageID
 		copy(msgId[:], []byte(msgIdStr))
-		err := topic.FinishMessage(msgId)
+
+		err := topic.store.SaveTasks(msgId, workerId, *tasks)
+		if err != nil {
+			logger.Error("HandleWorkerJobFeedback", "err", err, "id", string(msgId[:]))
+		}
+
+		err = topic.FinishMessage(msgId)
 		if err != nil {
 			logger.Error("HandleWorkerJobFeedback", "err", err, "id", string(msgId[:]))
 		}

@@ -17,3 +17,20 @@ func (tasks Tasks) Err() error {
 	}
 	return nil
 }
+
+func (tasks Tasks) MapInfo() []map[string]interface{} {
+	var result []map[string]interface{}
+	for _, t := range tasks {
+		taskMap := map[string]interface{}{
+			"name":   t.Name(),
+			"ok":     t.Ok(),
+			"err":    "",
+			"output": t.Output(),
+		}
+		if t.Err() != nil {
+			taskMap["err"] = t.Err().Error()
+		}
+		result = append(result, taskMap)
+	}
+	return result
+}
