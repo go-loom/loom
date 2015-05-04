@@ -1,2 +1,2 @@
-#box: wercker/golang
-box: attilaolah/godep
+box: wercker/golang
+#box: attilaolah/godep
