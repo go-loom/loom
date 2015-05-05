@@ -80,7 +80,8 @@ func New(name string) Logger {
 		level,
 	}
 	l.SetLevel(level)
-	//TODO: Set other log handler
+	logging.StderrHandler.Level = convertLevel(getLogLevel())
+	logging.StdoutHandler.Level = convertLevel(getLogLevel())
 
 	if os.Getenv("LOOM_LOG_NOCOLOR") != "" {
 		logging.StdoutHandler.Colorize = false
@@ -93,6 +94,13 @@ func New(name string) Logger {
 func NewWithSync(name string) Logger {
 	l := New(name)
 	l.SetHandler(StderrHandler)
+	StderrHandler.Level = convertLevel(getLogLevel())
+
+	if os.Getenv("LOOM_LOG_NOCOLOR") != "" {
+		StdoutHandler.Colorize = false
+		StderrHandler.Colorize = false
+	}
+
 	return l
 }
 

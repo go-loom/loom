@@ -1,8 +1,8 @@
 package worker
 
 import (
-	"github.com/mgutz/logxi/v1"
 	"golang.org/x/net/context"
+	"gopkg.in/loom.v1/log"
 	"gopkg.in/loom.v1/worker/config"
 )
 
@@ -103,7 +103,7 @@ func (w *Work) workJobStart() WorkFunc {
 
 	if w.logger.IsDebug() {
 		for _, t := range tasks {
-			w.logger.Debug("workJobStart", "task", t.Name, "when", t.StartStates())
+			w.logger.Debug("workJobStart task:%v when: %v", t.Name, t.StartStates())
 		}
 	}
 
@@ -123,8 +123,10 @@ func (w *Work) workAfterTask() WorkFunc {
 	for _, tr := range w.taskRunners.Runners {
 		for _, state := range tr.task.EndStates() {
 			if w.logger.IsDebug() {
-				w.logger.Debug("workAfterTask", "findtask", tr.task.Name,
-					"name", state.Name, "state", state.State)
+				w.logger.Debug("workAfterTask findtask task: %v name: %v state: %v",
+					tr.task.Name,
+					state.Name,
+					state.State)
 			}
 			tasks = w.workerConfig.FindTasksWhen(state.Name, state.State, tasks)
 		}
@@ -132,7 +134,7 @@ func (w *Work) workAfterTask() WorkFunc {
 
 	if w.logger.IsDebug() {
 		for _, t := range tasks {
-			w.logger.Debug("workAfterTask", "task", t.Name, "when", t.StartStates())
+			w.logger.Debug("workAfterTask task: %v when: %v", t.Name, t.StartStates())
 		}
 	}
 
@@ -151,7 +153,9 @@ func (w *Work) workAfterTask() WorkFunc {
 }
 
 func (w *Work) workJobDone() WorkFunc {
-	w.logger.Debug("workJobDone")
+	if w.logger.IsDebug() {
+		w.logger.Debug("workJobDone")
+	}
 
 	var tasks []*config.Task
 	tasks = w.workerConfig.FindTasksWhen("JOB", "DONE", tasks)

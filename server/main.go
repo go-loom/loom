@@ -3,11 +3,11 @@ package server
 import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/koding/kite"
-	"github.com/mgutz/logxi/v1"
+	"gopkg.in/loom.v1/log"
 	"os"
 )
 
-var logger = log.NewLogger(log.NewConcurrentWriter(os.Stdout), "loom-server")
+var logger = log.NewWithSync("loom-server")
 
 var broker *Broker
 

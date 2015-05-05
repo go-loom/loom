@@ -49,14 +49,14 @@ func (b *Broker) Init() error {
 	pattern := filepath.Join(b.DBPath, "*.boltdb")
 	dbfilepaths, err := filepath.Glob(pattern)
 	if err != nil {
-		logger.Error("db path", "err", err)
+		logger.Error("Wrong dbpath err: %v", err)
 		return err
 	}
 
 	for _, p := range dbfilepaths {
 		topicName := strings.Replace(filepath.Base(p), filepath.Ext(p), "", 1)
 		b.Topic(topicName)
-		logger.Info("Load topic db", "topic", topicName, "db", p)
+		logger.Info("load topic db topic: %v db: %v", topicName, p)
 	}
 
 	//Register Worker RPC
@@ -84,7 +84,7 @@ func (b *Broker) HandleWorkerConnect(r *kite.Request) (interface{}, error) {
 	topic := b.Topic(topicName)
 	topic.Dispatcher.AddWorker(w)
 
-	logger.Info("worker.init", "worker", workerId, "topic", topicName)
+	logger.Info("Worker %v of topic %v connected", workerId, topicName)
 	return true, nil
 }
 
@@ -104,12 +104,12 @@ func (b *Broker) HandleWorkerJobFeedback(r *kite.Request) (interface{}, error) {
 
 		err := topic.store.SaveTasks(msgId, workerId, *tasks)
 		if err != nil {
-			logger.Error("HandleWorkerJobFeedback", "err", err, "id", string(msgId[:]))
+			logger.Error("Save job feedback messageId: %v err: %v", string(msgId[:]), err)
 		}
 
 		err = topic.FinishMessage(msgId)
 		if err != nil {
-			logger.Error("HandleWorkerJobFeedback", "err", err, "id", string(msgId[:]))
+			logger.Error("Finish message messageId: %v err:%v", string(msgId[:]), err)
 		}
 	}
 
@@ -124,7 +124,7 @@ func (b *Broker) WorkerDisconnect(c *kite.Client) {
 		topic := b.Topic(w.TopicName)
 		topic.Dispatcher.RemoveWorker(w)
 		delete(b.Workers, c.ID)
-		logger.Info("worker.disconnect", "worker", c.ID)
+		logger.Info("Worker %s dicconneced", c.ID)
 	}
 }
 
@@ -143,7 +143,7 @@ func (b *Broker) Topic(name string) *Topic {
 	t := NewTopic(name, pendingTimeout, store)
 	err := t.Init()
 	if err != nil {
-		logger.Error("Load topic db", "err", err)
+		logger.Error("Load topic %v db err: %v", name, err)
 	}
 
 	b.Topics[name] = t

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/koding/kite"
-	"github.com/mgutz/logxi/v1"
 	"golang.org/x/net/context"
+	"gopkg.in/loom.v1/log"
 	"gopkg.in/loom.v1/worker/config"
 	"sync"
 	"time"
@@ -42,7 +42,7 @@ func NewWorker(serverURL string, workerConfig *config.Worker, k *kite.Kite) *Wor
 func (w *Worker) Init() error {
 	w.Client = w.kite.NewClient(w.ServerURL)
 
-	logger.Info("worker", "id", w.ID)
+	logger.Info("Worker ID: %v", w.ID)
 
 	connected, err := w.Client.DialForever()
 	<-connected
@@ -93,7 +93,7 @@ func (w *Worker) tellHelloToServer() error {
 func (w *Worker) tellJobDoneToServer(work *Work) error {
 	_, err := w.Client.Tell("loom.server:worker.job", work.Job["ID"], w.workerConfig.Topic, "done", work.tasks.MapInfo(), w.ID)
 	if err != nil {
-		logger.Error("tellJobDoneToServer", "err", err)
+		logger.Error("tellJobDoneToServer err: %v", err)
 		return err
 	}
 	return nil
@@ -109,19 +109,21 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 	var valueMap map[string]interface{}
 	err = json.Unmarshal([]byte(value), &valueMap)
 	if err != nil {
-		logger.Error("json", "err", err)
+		logger.Error("json err: %v", err)
 		return false, err
 	}
 
 	if logger.IsDebug() {
-		logger.Debug("message", "id", msg["id"], "value", valueMap)
+		logger.Debug("message id: %v value: %v", msg["id"], valueMap)
 	}
 
 	job := NewJob(msg["id"].MustString(), valueMap)
 
 	work := NewWork(w.ctx, job, w.workerConfig)
 	work.OnEnd(func(work *Work) {
-		logger.Debug("workdone", "tasks", work.tasks)
+		if w.logger.IsDebug() {
+			w.logger.Debug("workdone tasks: %v", work.tasks)
+		}
 		for err := w.tellJobDoneToServer(work); err != nil; {
 			time.Sleep(1 * time.Second)
 		}
@@ -137,7 +139,9 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 	w.works[work.ID] = work
 	w.worksMutex.Unlock()
 
-	w.logger.Debug("popmessage", "msg", msg, "job", job)
+	if w.logger.IsDebug() {
+		w.logger.Debug("Pop message: %v job: %v", msg, job)
+	}
 
 	return true, nil
 }

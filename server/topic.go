@@ -1,7 +1,6 @@
 package server
 
 import (
-	"log"
 	"sync"
 	"time"
 )
@@ -79,7 +78,7 @@ func (t *Topic) push(msg *Message) {
 		err := t.Queue.Push(msg)
 		if err != nil {
 			//TODO:
-			log.Println(err)
+			logger.Error("err: %v", err)
 		}
 	}
 }

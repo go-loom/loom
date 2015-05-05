@@ -2,20 +2,20 @@ package worker
 
 import (
 	"github.com/koding/kite"
-	"github.com/mgutz/logxi/v1"
+	"gopkg.in/loom.v1/log"
 	"gopkg.in/loom.v1/worker/config"
 	"os"
 )
 
-var logger = log.NewLogger(log.NewConcurrentWriter(os.Stdout), "loom-worker")
+var logger = log.NewWithSync("loom-worker")
 
 func Main(serverURL, workerConfigFile string, version string) {
 	workerConfig, err := config.ReadFile(workerConfigFile)
 	if err != nil {
-		logger.Error("worker config", "err", err)
+		logger.Error("worker config err: %v", err)
 		os.Exit(1)
 	}
-	logger.Info("read", "config", workerConfigFile)
+	logger.Info("Read config file: %v", workerConfigFile)
 
 	workerName := "loom-worker-" + workerConfig.Name
 
@@ -25,7 +25,7 @@ func Main(serverURL, workerConfigFile string, version string) {
 	w := NewWorker(serverURL, workerConfig, k)
 	err = w.Init()
 	if err != nil {
-		logger.Error("worker", "err", err)
+		logger.Error("Worker init err: %v", err)
 		os.Exit(1)
 	}
 
