@@ -1,6 +1,6 @@
 {
 	"ImportPath": "gopkg.in/loom.v1",
-	"GoVersion": "go1.4.1",
+	"GoVersion": "go1.4.2",
 	"Deps": [
 		{
 			"ImportPath": "code.google.com/p/go.crypto/ssh/terminal",
@@ -49,22 +49,6 @@
 		{
 			"ImportPath": "github.com/koding/logging",
 			"Rev": "98efaf62e3c3ff8496dcb446242033f6d858bb3c"
-		},
-		{
-			"ImportPath": "github.com/mattn/go-colorable",
-			"Rev": "d67e0b7d1797975196499f79bcc322c08b9f218b"
-		},
-		{
-			"ImportPath": "github.com/mattn/go-isatty",
-			"Rev": "ae0b1f8f8004be68d791a576e3d8e7648ab41449"
-		},
-		{
-			"ImportPath": "github.com/mgutz/ansi",
-			"Rev": "22ddafb24adc4786c83841aa3021349818c898e4"
-		},
-		{
-			"ImportPath": "github.com/mgutz/logxi/v1",
-			"Rev": "f9be032893f108926c14775fef4c981a0fa18884"
 		},
 		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
