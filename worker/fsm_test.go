@@ -2,12 +2,10 @@ package worker
 
 import (
 	"github.com/looplab/fsm"
-	"github.com/seanpont/assert"
 	"testing"
 )
 
 func TestFSM(t *testing.T) {
-	assert := assert.Assert(t)
 	fsm := fsm.NewFSM(
 		"init",
 		fsm.Events{
@@ -18,18 +16,24 @@ func TestFSM(t *testing.T) {
 		fsm.Callbacks{},
 	)
 
-	assert.Equal(fsm.Current(), "init")
+	if fsm.Current() != "init" {
+		t.Error("fsm.Current() is not init")
+	}
 
 	if err := fsm.Event("run"); err != nil {
 		t.Error(err)
 	}
 
-	assert.Equal(fsm.Current(), "process")
+	if fsm.Current() != "process" {
+		t.Error("fsm.Current() is not process")
+	}
 
 	if err := fsm.Event("success"); err != nil {
 		t.Error(err)
 	}
 
-	assert.Equal(fsm.Current(), "done")
+	if fsm.Current() != "done" {
+		t.Error("fsm.Current() is not done")
+	}
 
 }
