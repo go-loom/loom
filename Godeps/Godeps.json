@@ -63,6 +63,10 @@
 			"Rev": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3"
 		},
 		{
+			"ImportPath": "github.com/seanpont/assert",
+			"Rev": "4b06649e62f72436465fa536df365be748192ba3"
+		},
+		{
 			"ImportPath": "golang.org/x/net/context",
 			"Rev": "a8c61998a557a37435f719980da368469c10bfed"
 		},

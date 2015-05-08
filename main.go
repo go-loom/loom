@@ -5,6 +5,9 @@ import (
 	"gopkg.in/loom.v1/server"
 	"gopkg.in/loom.v1/worker"
 	"os"
+
+	//	"github.com/looplab/fsm"
+	//	"github.com/seanpont/assert"
 )
 
 func main() {
