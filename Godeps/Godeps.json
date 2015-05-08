@@ -51,6 +51,10 @@
 			"Rev": "98efaf62e3c3ff8496dcb446242033f6d858bb3c"
 		},
 		{
+			"ImportPath": "github.com/looplab/fsm",
+			"Rev": "406628531e6e20c817c9ff2260f60b3284b5966a"
+		},
+		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
 			"Rev": "442e588f213303bec7936deba67901f8fc8f18b1"
 		},
