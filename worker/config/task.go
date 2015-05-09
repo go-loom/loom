@@ -29,6 +29,22 @@ type TaskState struct {
 	State string
 }
 
+func (t *Task) TaskName() string {
+	return t.Name
+}
+
+func (t *Task) Ok() bool {
+	return false
+}
+
+func (t *Task) Err() error {
+	return nil
+}
+
+func (t *Task) Output() string {
+	return ""
+}
+
 func (t *Task) StartStates() []*TaskState {
 	if len(t.startStates) > 0 {
 		return t.startStates
