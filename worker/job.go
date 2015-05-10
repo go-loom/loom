@@ -56,6 +56,7 @@ func (job *Job) DoneTask(tr *TaskRunner) {
 func (job *Job) TasksMapInfo() []map[string]interface{} {
 	var result []map[string]interface{}
 	for _, t := range job.tasks {
+		job.logger.Debug("tasks map name:%v  output:%v", t.TaskName(), t.Output())
 		taskMap := map[string]interface{}{
 			"name":   t.TaskName(),
 			"ok":     t.Ok(),
@@ -76,7 +77,7 @@ func (job *Job) do() {
 		select {
 		case tr := <-job.doneTaskC:
 			if job.logger.IsDebug() {
-				job.logger.Debug("Recv taskrunner done: %v", tr.TaskName())
+				job.logger.Debug("Done taskrunner: %v ", tr.TaskName())
 			}
 			job.tasks[tr.TaskName()] = tr
 			job.walkNextTasks(tr.TaskName(), tr.State(), func(ntr *TaskRunner) {

@@ -13,7 +13,8 @@
       "then": "world"
     },
     {
-      "name": "echo helloworld",
+      "name": "helloworld",
+      "cmd" : "echo helloworld",
       "when": "world",
       "then": "JOB"
     }

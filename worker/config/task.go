@@ -73,7 +73,8 @@ func (t *Task) StartStates() []*TaskState {
 			}
 		}
 	default:
-		fmt.Println("ERROR") //TODO: raise panic!
+		ts := NewTaskState("JOB", "START")
+		t.endStates = append(t.endStates, ts)
 	}
 	return t.startStates
 }
@@ -101,7 +102,8 @@ func (t *Task) EndStates() []*TaskState {
 		}
 
 	default:
-		fmt.Println("ERROR")
+		ts := NewTaskState(t.TaskName(), "DONE")
+		t.endStates = append(t.endStates, ts)
 	}
 	return t.endStates
 }

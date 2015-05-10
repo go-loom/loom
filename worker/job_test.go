@@ -22,13 +22,23 @@ func TestJobSerialTasks(t *testing.T) {
 		When: "hello",
 		Then: "",
 	}
+	task3 := &config.Task{
+		Name: "helloworld",
+		Cmd:  "echo helloworld",
+		When: "world",
+	}
 	jobConfig := &config.Job{}
 	jobConfig.Tasks = append(jobConfig.Tasks, task1)
 	jobConfig.Tasks = append(jobConfig.Tasks, task2)
+	jobConfig.Tasks = append(jobConfig.Tasks, task3)
 
 	job := NewJob(ctx, "id", jobConfig)
 	job.Run()
 	<-job.ctx.Done()
 
-	a.Equal(len(job.tasks), 2)
+	a.Equal(len(job.tasks), 3)
+
+	for _, task := range job.tasks {
+		a.Equal(task.State(), "DONE")
+	}
 }

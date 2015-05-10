@@ -109,6 +109,10 @@ func (tr *TaskRunner) processing() error {
 		}
 		tr.output = string(out)
 
+		if tr.logger.IsDebug() {
+			tr.logger.Debug("cmd: %s output: %v", cmdstr, tr.output)
+		}
+
 		return err
 	}
 	return nil
