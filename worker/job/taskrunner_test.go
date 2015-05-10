@@ -20,11 +20,13 @@ func TestNewTaskRunner(t *testing.T) {
 	jobConfig.Tasks = append(jobConfig.Tasks, task)
 
 	job := NewJob(ctx, jobConfig)
-	tr := job.taskRunners["helloworld"]
+	tr := NewTaskRunner(job, task)
 	tr.Run()
 
 	<-job.ctx.Done()
 
-	a.Equal(tr.fsm.Current(), "success")
+	a.Equal(tr.fsm.Current(), "DONE")
+	a.Equal(tr.State(), "DONE")
+	t.Logf("task.output:%v", tr.Output())
 
 }

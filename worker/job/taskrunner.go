@@ -27,18 +27,18 @@ func NewTaskRunner(job *Job, task *config.Task) *TaskRunner {
 		logger: log.New("taskrunner#" + task.TaskName()),
 	}
 	tr_fsm := fsm.NewFSM(
-		"init",
+		"INIT",
 		fsm.Events{
-			{Name: "run", Src: []string{"init"}, Dst: "process"},
-			{Name: "success", Src: []string{"process"}, Dst: "success"},
-			{Name: "cancel", Src: []string{"init", "process"}, Dst: "cancel"},
-			{Name: "error", Src: []string{"process"}, Dst: "error"},
+			{Name: "run", Src: []string{"INIT"}, Dst: "PROCESS"},
+			{Name: "success", Src: []string{"PROCESS"}, Dst: "DONE"},
+			{Name: "cancel", Src: []string{"INIT", "PROCESS"}, Dst: "CANCEL"},
+			{Name: "error", Src: []string{"PROCESS"}, Dst: "ERROR"},
 		},
 		fsm.Callbacks{
 			"enter_state": func(e *fsm.Event) {
-				tr.logger.Debug("enter state:%v", e.Dst)
+				tr.logger.Debug("S:enter state:%v", e.Dst)
 				tr.stateC <- e.Dst
-				tr.logger.Debug("enter state:%v", e.Dst)
+				tr.logger.Debug("E:enter state:%v", e.Dst)
 			},
 		},
 	)
@@ -64,7 +64,7 @@ func (tr *TaskRunner) stateListening() {
 		select {
 		case state := <-tr.stateC:
 			tr.logger.Debug("stateC:%v", state)
-			if state == "process" {
+			if state == "PROCESS" {
 				err := tr.processing()
 				if err != nil {
 					tr.eventC <- "error"
