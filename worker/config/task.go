@@ -45,6 +45,10 @@ func (t *Task) Output() string {
 	return ""
 }
 
+func (t *Task) State() string {
+	return "init"
+}
+
 func (t *Task) StartStates() []*TaskState {
 	if len(t.startStates) > 0 {
 		return t.startStates

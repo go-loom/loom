@@ -5,7 +5,6 @@ import (
 	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/worker/config"
 	"testing"
-	"time"
 )
 
 func TestNewTaskRunner(t *testing.T) {
@@ -21,11 +20,11 @@ func TestNewTaskRunner(t *testing.T) {
 	jobConfig.Tasks = append(jobConfig.Tasks, task)
 
 	job := NewJob(ctx, jobConfig)
-
-	tr := NewTaskRunner(job, task)
+	tr := job.taskRunners["helloworld"]
 	tr.Run()
 
-	time.Sleep(1 * time.Second)
+	<-job.ctx.Done()
+
 	a.Equal(tr.fsm.Current(), "success")
 
 }

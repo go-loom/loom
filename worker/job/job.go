@@ -7,6 +7,7 @@ import (
 
 type Job struct {
 	ctx         context.Context
+	cancelF     context.CancelFunc
 	config      *config.Worker
 	tasks       map[string]Task
 	taskEdges   map[string]map[string]struct{}
@@ -16,8 +17,10 @@ type Job struct {
 
 //TODO: config.Worker -> config.Job
 func NewJob(ctx context.Context, jobConfig *config.Worker) *Job {
+	_ctx, cf := context.WithCancel(ctx)
 	job := &Job{
-		ctx:         ctx,
+		ctx:         _ctx,
+		cancelF:     cf,
 		config:      jobConfig,
 		tasks:       make(map[string]Task),
 		taskRunners: make(map[string]*TaskRunner),
@@ -48,6 +51,16 @@ func (job *Job) do() {
 		select {
 		case tr := <-job.doneTaskC:
 			job.tasks[tr.TaskName()] = tr
+
+			numDoneT := 0
+			for _, t := range job.tasks {
+				if t.State() == "success" || t.State() == "error" || t.State() == "cancel" {
+					numDoneT++
+				}
+			}
+			if numDoneT == len(job.tasks) {
+				job.cancelF()
+			}
 		}
 	}
 }

@@ -14,6 +14,7 @@ type TaskRunner struct {
 	output string
 	fsm    *fsm.FSM
 	eventC chan string
+	stateC chan string
 	logger log.Logger
 }
 
@@ -22,6 +23,7 @@ func NewTaskRunner(job *Job, task *config.Task) *TaskRunner {
 		job:    job,
 		task:   task,
 		eventC: make(chan string),
+		stateC: make(chan string),
 		logger: log.New("taskrunner#" + task.TaskName()),
 	}
 	tr_fsm := fsm.NewFSM(
@@ -33,29 +35,18 @@ func NewTaskRunner(job *Job, task *config.Task) *TaskRunner {
 			{Name: "error", Src: []string{"process"}, Dst: "error"},
 		},
 		fsm.Callbacks{
-			"process": func(e *fsm.Event) {
-				err := tr.processing()
-				if err != nil {
-					tr.fsm.Event("error")
-				}
-				err = tr.fsm.Event("success")
-				tr.logger.Debug("process... err:%v", err)
-			},
-			"success": func(e *fsm.Event) {
-				tr.logger.Debug("success")
-				tr.job.DoneTask(tr)
-				tr.logger.Debug("success")
-			},
-			"error": func(e *fsm.Event) {
-				tr.job.DoneTask(tr)
-			},
-			"cancel": func(e *fsm.Event) {
-				tr.job.DoneTask(tr)
+			"enter_state": func(e *fsm.Event) {
+				tr.logger.Debug("enter state:%v", e.Dst)
+				tr.stateC <- e.Dst
+				tr.logger.Debug("enter state:%v", e.Dst)
 			},
 		},
 	)
 	tr.fsm = tr_fsm
+	go tr.stateListening()
 	go tr.eventListening()
+
+	tr.logger.Info("New task runner")
 	return tr
 }
 
@@ -67,11 +58,33 @@ func (tr *TaskRunner) Cancel() {
 	tr.eventC <- "cancel"
 }
 
+func (tr *TaskRunner) stateListening() {
+	tr.logger.Info("start stateListening")
+	for {
+		select {
+		case state := <-tr.stateC:
+			tr.logger.Debug("stateC:%v", state)
+			if state == "process" {
+				err := tr.processing()
+				if err != nil {
+					tr.eventC <- "error"
+				} else {
+					tr.eventC <- "success"
+				}
+			} else {
+				tr.job.DoneTask(tr)
+			}
+		}
+	}
+	tr.logger.Info("end stateListening")
+}
+
 func (tr *TaskRunner) eventListening() {
 	for {
 		select {
 		case event := <-tr.eventC:
 			err := tr.fsm.Event(event)
+			tr.logger.Debug("eventListening event:%v", event)
 			if err != nil {
 				//TODO:
 				tr.logger.Error("fsm event error: %v", err)
@@ -104,6 +117,10 @@ func (tr *TaskRunner) Ok() bool {
 		return true
 	}
 	return false
+}
+
+func (tr *TaskRunner) State() string {
+	return tr.fsm.Current()
 }
 
 func (tr *TaskRunner) Err() error {
