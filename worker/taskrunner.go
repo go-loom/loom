@@ -2,20 +2,24 @@ package worker
 
 import (
 	"github.com/looplab/fsm"
+	"github.com/matryer/try"
 	"gopkg.in/loom.v1/log"
 	"gopkg.in/loom.v1/worker/config"
 	"os/exec"
+	"time"
 )
 
 type TaskRunner struct {
-	job    *Job
-	task   *config.Task
-	err    error
-	output string
-	fsm    *fsm.FSM
-	eventC chan string
-	stateC chan string
-	logger log.Logger
+	job       *Job
+	task      *config.Task
+	err       error
+	output    string
+	fsm       *fsm.FSM
+	eventC    chan string
+	stateC    chan string
+	logger    log.Logger
+	startTime time.Time
+	endTime   time.Time
 }
 
 func NewTaskRunner(job *Job, task *config.Task) *TaskRunner {
@@ -43,6 +47,7 @@ func NewTaskRunner(job *Job, task *config.Task) *TaskRunner {
 		},
 	)
 	tr.fsm = tr_fsm
+
 	go tr.stateListening()
 	go tr.eventListening()
 
@@ -81,6 +86,7 @@ func (tr *TaskRunner) stateListening() {
 }
 
 func (tr *TaskRunner) eventListening() {
+	tr.startTime = time.Now()
 	for {
 		select {
 		case event := <-tr.eventC:
@@ -88,34 +94,49 @@ func (tr *TaskRunner) eventListening() {
 				break
 			}
 			err := tr.fsm.Event(event)
-			tr.logger.Debug("eventListening event:%v", event)
 			if err != nil {
 				//TODO:
 				tr.logger.Error("fsm event error: %v", err)
 			}
+			if tr.logger.IsDebug() {
+				tr.logger.Debug("eventListening event:%v", event)
+			}
 		}
 	}
 
+	tr.endTime = time.Now()
 	tr.logger.Info("End taskrunner")
 }
 
 func (tr *TaskRunner) processing() error {
 	if tr.task.Cmd != "" {
-		cmdstr := tr.task.Cmd
-		cmd := exec.Command("bash", "-c", cmdstr)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			tr.err = err
-		}
-		tr.output = string(out)
-
-		if tr.logger.IsDebug() {
-			tr.logger.Debug("cmd: %s output: %v", cmdstr, tr.output)
-		}
-
+		err := try.Do(func(attempt int) (bool, error) {
+			err := tr.cmd()
+			if err != nil {
+				d, _ := tr.task.Retry.GetInterval()
+				time.Sleep(d)
+			}
+			return attempt < tr.task.Retry.Number, err
+		})
 		return err
 	}
 	return nil
+}
+
+func (tr *TaskRunner) cmd() error {
+	cmdstr := tr.task.Cmd
+	cmd := exec.Command("bash", "-c", cmdstr)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		tr.err = err
+	}
+	tr.output = string(out)
+
+	if tr.logger.IsDebug() {
+		tr.logger.Debug("cmd: %s output: %v", cmdstr, tr.output)
+	}
+
+	return err
 }
 
 func (tr *TaskRunner) TaskName() string {
@@ -139,4 +160,8 @@ func (tr *TaskRunner) Err() error {
 
 func (tr *TaskRunner) Output() string {
 	return tr.output
+}
+
+func (tr *TaskRunner) StartEndTimes() []*time.Time {
+	return []*time.Time{&tr.startTime, &tr.endTime}
 }

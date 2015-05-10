@@ -14,5 +14,6 @@ func (j *Job) FindTasksWhen(name, state string, tasks []*Task) []*Task {
 			}
 		}
 	}
+
 	return tasks
 }

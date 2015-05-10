@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"time"
 )
 
 type Task struct {
@@ -46,7 +47,11 @@ func (t *Task) Output() string {
 }
 
 func (t *Task) State() string {
-	return "init"
+	return "INIT"
+}
+
+func (t *Task) StartEndTimes() []*time.Time {
+	return []*time.Time{}
 }
 
 func (t *Task) StartStates() []*TaskState {
