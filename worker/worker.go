@@ -12,28 +12,26 @@ import (
 )
 
 type Worker struct {
-	ID             string
-	ServerURL      string
-	kite           *kite.Kite
-	Client         *kite.Client
-	workerConfig   *config.Worker
-	works          map[string]*Work
-	worksMutex     sync.RWMutex
-	logger         log.Logger
-	connected      bool
-	connectedMutex sync.RWMutex
-	ctx            context.Context
+	ID        string
+	Topic     string
+	ServerURL string
+	kite      *kite.Kite
+	Client    *kite.Client
+	jobs      map[string]*Job
+	jobsMutex sync.RWMutex
+	logger    log.Logger
+	ctx       context.Context
 }
 
-func NewWorker(serverURL string, workerConfig *config.Worker, k *kite.Kite) *Worker {
+func NewWorker(serverURL, topic string, k *kite.Kite) *Worker {
 	w := &Worker{
-		ID:           k.Id,
-		ServerURL:    serverURL,
-		workerConfig: workerConfig,
-		works:        make(map[string]*Work, 0),
-		kite:         k,
-		logger:       log.New("worker"),
-		ctx:          context.Background(), //TODO:
+		ID:        k.Id,
+		Topic:     topic,
+		ServerURL: serverURL,
+		jobs:      make(map[string]*Job, 0),
+		kite:      k,
+		logger:    log.New("worker-" + topic),
+		ctx:       context.Background(), //TODO:
 	}
 
 	return w
@@ -42,7 +40,7 @@ func NewWorker(serverURL string, workerConfig *config.Worker, k *kite.Kite) *Wor
 func (w *Worker) Init() error {
 	w.Client = w.kite.NewClient(w.ServerURL)
 
-	logger.Info("Worker ID: %v", w.ID)
+	w.logger.Info("Worker ID: %v", w.ID)
 
 	connected, err := w.Client.DialForever()
 	<-connected
@@ -50,24 +48,11 @@ func (w *Worker) Init() error {
 		return err
 	}
 
-	w.connectedMutex.Lock()
-	w.connected = true
-	w.connectedMutex.Unlock()
-
 	w.Client.OnConnect(func() {
 		err := w.tellHelloToServer()
 		if err != nil {
 			return
 		}
-
-		w.connectedMutex.Lock()
-		w.connected = true
-		w.connectedMutex.Unlock()
-	})
-	w.Client.OnDisconnect(func() {
-		w.connectedMutex.Lock()
-		w.connected = false
-		w.connectedMutex.Unlock()
 	})
 
 	w.tellHelloToServer()
@@ -77,7 +62,7 @@ func (w *Worker) Init() error {
 }
 
 func (w *Worker) tellHelloToServer() error {
-	response, err := w.Client.Tell("loom.server:worker.connect", w.ID, w.workerConfig.Topic)
+	response, err := w.Client.Tell("loom.server:worker.connect", w.ID, w.Topic)
 	if err != nil {
 		return err
 	}
@@ -90,8 +75,10 @@ func (w *Worker) tellHelloToServer() error {
 	return nil
 }
 
-func (w *Worker) tellJobDoneToServer(work *Work) error {
-	_, err := w.Client.Tell("loom.server:worker.job", work.Job["ID"], w.workerConfig.Topic, "done", work.tasks.MapInfo(), w.ID)
+func (w *Worker) tellJobDoneToServer(job *Job) error {
+	_, err := w.Client.Tell("loom.server:worker.job",
+		job.ID, w.Topic, "done", job.TasksMapInfo(), w.ID)
+
 	if err != nil {
 		logger.Error("tellJobDoneToServer err: %v", err)
 		return err
@@ -106,41 +93,37 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 	}
 
 	value := msg["value"].MustString()
-	var valueMap map[string]interface{}
-	err = json.Unmarshal([]byte(value), &valueMap)
+	var jobConfig config.Job
+	err = json.Unmarshal([]byte(value), &jobConfig)
 	if err != nil {
-		logger.Error("json err: %v", err)
+		w.logger.Error("json err: %v", err)
 		return false, err
 	}
 
-	if logger.IsDebug() {
-		logger.Debug("message id: %v value: %v", msg["id"], valueMap)
+	if w.logger.IsDebug() {
+		w.logger.Debug("message id: %v value: %v", msg["id"], jobConfig)
 	}
 
-	job := NewJob(msg["id"].MustString(), valueMap)
-
-	work := NewWork(w.ctx, job, w.workerConfig)
-	work.OnEnd(func(work *Work) {
-		if w.logger.IsDebug() {
-			w.logger.Debug("workdone tasks: %v", work.tasks)
-		}
-		for err := w.tellJobDoneToServer(work); err != nil; {
+	job := NewJob(w.ctx, msg["id"].MustString(), &jobConfig)
+	go func() {
+		<-job.Done()
+		for err := w.tellJobDoneToServer(job); err != nil; {
 			time.Sleep(1 * time.Second)
 		}
 
-		w.worksMutex.Lock()
-		delete(w.works, work.ID)
-		w.worksMutex.Unlock()
+		w.jobsMutex.Lock()
+		delete(w.jobs, job.ID)
+		w.jobsMutex.Unlock()
 
-	})
-	work.Run() //async.
+	}()
+	job.Run() //async.
 
-	w.worksMutex.Lock()
-	w.works[work.ID] = work
-	w.worksMutex.Unlock()
+	w.jobsMutex.Lock()
+	w.jobs[job.ID] = job
+	w.jobsMutex.Unlock()
 
 	if w.logger.IsDebug() {
-		w.logger.Debug("Pop message: %v job: %v", msg, job)
+		w.logger.Debug("Pop message id: %v job: %v", job.ID, job)
 	}
 
 	return true, nil

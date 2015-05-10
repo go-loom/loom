@@ -15,7 +15,6 @@ func main() {
 	app.Name = "loom"
 	app.Usage = "Distributed task processing tool"
 	app.Version = VERSION
-	//app.Action = WorkerAction
 
 	app.Flags = []cli.Flag{}
 
@@ -49,8 +48,8 @@ func main() {
 					Value: "http://localhost:7000/kite",
 				},
 				cli.StringFlag{
-					Name:  "config,c",
-					Value: "./worker.yaml",
+					Name:  "topic,t",
+					Value: "",
 				},
 			},
 		},
@@ -67,7 +66,6 @@ func ServerAction(c *cli.Context) {
 
 func WorkerAction(c *cli.Context) {
 	serverURL := c.String("serverurl")
-	workerConfigFile := c.String("config")
-	worker.Main(serverURL, workerConfigFile, VERSION)
-
+	topic := c.String("topic")
+	worker.Main(serverURL, topic, VERSION)
 }

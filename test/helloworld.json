@@ -1,0 +1,21 @@
+{
+  "tasks": [
+    {
+      "name": "hello",
+      "cmd": "echo hello",
+      "when": "JOB",
+      "then": "hello"
+    },
+    {
+      "name": "world",
+      "cmd": "echo world",
+      "when": "hello",
+      "then": "world"
+    },
+    {
+      "name": "echo helloworld",
+      "when": "world",
+      "then": "JOB"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-package job
+package worker
 
 import (
 	"github.com/seanpont/assert"
@@ -14,12 +14,10 @@ func TestNewTaskRunner(t *testing.T) {
 		Name: "helloworld",
 		Cmd:  "echo helloworld",
 	}
-	jobConfig := &config.Worker{
-		Name: "test",
-	}
+	jobConfig := &config.Job{}
 	jobConfig.Tasks = append(jobConfig.Tasks, task)
 
-	job := NewJob(ctx, jobConfig)
+	job := NewJob(ctx, "id", jobConfig)
 	tr := NewTaskRunner(job, task)
 	tr.Run()
 
