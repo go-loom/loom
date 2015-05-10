@@ -55,6 +55,10 @@
 			"Rev": "406628531e6e20c817c9ff2260f60b3284b5966a"
 		},
 		{
+			"ImportPath": "github.com/matryer/try",
+			"Rev": "8316cbf8a73db1d13c3b8840c39ced55141f41fd"
+		},
+		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
 			"Rev": "442e588f213303bec7936deba67901f8fc8f18b1"
 		},
@@ -73,10 +77,6 @@
 		{
 			"ImportPath": "gopkg.in/igm/sockjs-go.v2/sockjs",
 			"Rev": "50b75e1901c11bfce4e0467274fcc561e09aec65"
-		},
-		{
-			"ImportPath": "gopkg.in/yaml.v2",
-			"Rev": "49c95bdc21843256fb6c4e0d370a05f24a0bf213"
 		}
 	]
 }
