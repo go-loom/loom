@@ -1,12 +1,29 @@
 package worker
 
 import (
+	"bytes"
+	"errors"
 	"github.com/looplab/fsm"
 	"github.com/matryer/try"
 	"gopkg.in/loom.v1/log"
 	"gopkg.in/loom.v1/worker/config"
+	"io/ioutil"
+	"mime/multipart"
+	"net/http"
+	"net/http/httputil"
+	"os"
 	"os/exec"
+	"strings"
 	"time"
+)
+
+const (
+	HTTP_GET  = "GET"
+	HTTP_POST = "POST"
+)
+
+var (
+	HTTPMethodNotSupport = errors.New("Http method is not supported")
 )
 
 type TaskRunner struct {
@@ -118,6 +135,9 @@ func (tr *TaskRunner) processing() error {
 			}
 			return attempt < tr.task.Retry.Number, err
 		})
+		if err != nil {
+			tr.err = err
+		}
 		return err
 	}
 	return nil
@@ -127,9 +147,6 @@ func (tr *TaskRunner) cmd() error {
 	cmdstr := tr.task.Cmd
 	cmd := exec.Command("bash", "-c", cmdstr)
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		tr.err = err
-	}
 	tr.output = string(out)
 
 	if tr.logger.IsDebug() {
@@ -138,6 +155,103 @@ func (tr *TaskRunner) cmd() error {
 
 	return err
 }
+
+func (tr *TaskRunner) http() (err error) {
+	method := strings.ToUpper(tr.task.HTTP.Method)
+
+	switch method {
+	case HTTP_GET:
+		err = tr.httpGet()
+	case HTTP_POST:
+
+	default:
+		err = HTTPMethodNotSupport
+	}
+
+	return nil
+}
+
+func (tr *TaskRunner) httpGet() error {
+	httpcfg := tr.task.HTTP
+	url := httpcfg.URL
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+
+	body, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		return err
+	}
+
+	tr.output = string(body)
+	return nil
+}
+
+func (tr *TaskRunner) httpPost() error {
+	httpcfg := tr.task.HTTP
+	url := httpcfg.URL
+	params := httpcfg.Data
+	files := httpcfg.Files
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+
+	//file handling
+	if len(files) > 0 {
+		for _, file := range files {
+			if err := file.Err(); err != nil {
+				return err
+			}
+
+			_file, err := os.Open(file.Path)
+			if err != nil {
+				return err
+			}
+
+			fi, _ := _file.Stat()
+			part, err := writer.CreateFormFile(file.Filename, fi.Name())
+			if err != nil {
+				return err
+			}
+			fileContents, err := ioutil.ReadAll(_file)
+			if err != nil {
+				return err
+			}
+			part.Write(fileContents)
+		}
+	}
+
+	//data handling
+	for key, val := range params {
+		_ = writer.WriteField(key, val)
+	}
+
+	err := writer.Close()
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(HTTP_POST, url, body)
+	if err != nil {
+		return err
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	dump_resp, err := httputil.DumpResponse(resp, true)
+	if err != nil {
+		return err
+	}
+	tr.output = string(dump_resp)
+
+	return nil
+}
+
+//Implement Task interface
 
 func (tr *TaskRunner) TaskName() string {
 	return tr.task.Name

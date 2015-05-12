@@ -9,6 +9,7 @@ type Task struct {
 	templateReader
 	Name    string
 	Cmd     string
+	HTTP    *HTTP
 	When    interface{}
 	Then    interface{}
 	Timeout string
