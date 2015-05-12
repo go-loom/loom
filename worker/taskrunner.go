@@ -241,6 +241,9 @@ func (tr *TaskRunner) httpPost() error {
 	if err != nil {
 		return err
 	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
