@@ -126,21 +126,26 @@ func (tr *TaskRunner) eventListening() {
 }
 
 func (tr *TaskRunner) processing() error {
+	var processFunc func() error
+
 	if tr.task.Cmd != "" {
-		err := try.Do(func(attempt int) (bool, error) {
-			err := tr.cmd()
-			if err != nil {
-				d, _ := tr.task.Retry.GetInterval()
-				time.Sleep(d)
-			}
-			return attempt < tr.task.Retry.Number, err
-		})
-		if err != nil {
-			tr.err = err
-		}
-		return err
+		processFunc = tr.cmd
+	} else if tr.task.HTTP != nil {
+		processFunc = tr.http
 	}
-	return nil
+
+	err := try.Do(func(attempt int) (bool, error) {
+		err := processFunc()
+		if err != nil {
+			d, _ := tr.task.Retry.GetInterval()
+			time.Sleep(d)
+		}
+		return attempt < tr.task.Retry.Number, err
+	})
+	if err != nil {
+		tr.err = err
+	}
+	return err
 }
 
 func (tr *TaskRunner) cmd() error {
@@ -163,7 +168,7 @@ func (tr *TaskRunner) http() (err error) {
 	case HTTP_GET:
 		err = tr.httpGet()
 	case HTTP_POST:
-
+		err = tr.httpPost()
 	default:
 		err = HTTPMethodNotSupport
 	}
