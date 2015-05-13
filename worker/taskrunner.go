@@ -173,7 +173,7 @@ func (tr *TaskRunner) http() (err error) {
 		err = HTTPMethodNotSupport
 	}
 
-	return nil
+	return
 }
 
 func (tr *TaskRunner) httpGet() error {

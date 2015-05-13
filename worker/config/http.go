@@ -23,7 +23,7 @@ func (f *HTTPFile) Err() error {
 	}
 
 	fi, err := os.Stat(f.Path)
-	if err == nil {
+	if err != nil {
 		return err
 	}
 	if fi.IsDir() {

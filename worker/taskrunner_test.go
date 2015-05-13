@@ -123,14 +123,18 @@ func TestTaskRunnerHTTPPost(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	filePath := filepath.Join(
-		os.Getenv("GOPATH"),
-		"src/gopkg.in/loom.v1/test",
-		"helloworld.json")
+	var filePath string
+	gopaths := filepath.SplitList(os.Getenv("GOPATH"))
+	for _, gp := range gopaths {
+		filePath = filepath.Join(gp, "src/gopkg.in/loom.v1/test", "helloworld.json")
+		if _, err := os.Stat(filePath); err == nil {
+			break
+		}
+	}
 
 	ctx := context.Background()
 	task := &config.Task{
-		Name: "helloworld",
+		Name: "http_post",
 		HTTP: &config.HTTP{
 			URL:    ts.URL,
 			Method: "POST",

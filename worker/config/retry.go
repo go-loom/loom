@@ -22,5 +22,8 @@ func (r *Retry) GetInterval() (time.Duration, error) {
 		r.intervalDuration = &d
 		return d, err
 	}
+
+	d := time.Duration(0 * time.Second)
+	r.intervalDuration = &d
 	return *r.intervalDuration, nil
 }
