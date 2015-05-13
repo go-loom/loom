@@ -36,9 +36,9 @@ func TestJobSerialTasks(t *testing.T) {
 	job.Run()
 	<-job.ctx.Done()
 
-	a.Equal(len(job.tasks), 3)
+	a.Equal(len(job.Tasks), 3)
 
-	for _, task := range job.tasks {
-		a.Equal(task.State(), "DONE")
+	for _, task := range job.Tasks {
+		a.Equal(task.State(), TASK_STATE_DONE)
 	}
 }

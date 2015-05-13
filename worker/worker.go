@@ -75,12 +75,22 @@ func (w *Worker) tellHelloToServer() error {
 	return nil
 }
 
-func (w *Worker) tellJobDoneToServer(job *Job) error {
-	_, err := w.Client.Tell("loom.server:worker.job",
-		job.ID, w.Topic, "done", job.TasksMapInfo(), w.ID)
-
+func (w *Worker) tellJobTaskStateChange(job *Job, tasks Tasks) error {
+	_, err := w.Client.Tell("loom.server:worker.job.tasks.state",
+		tasks.JSON(), job.ID, w.Topic)
 	if err != nil {
-		logger.Error("tellJobDoneToServer err: %v", err)
+		w.logger.Error("tellJobTaskStateChange err:%v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (w *Worker) tellJobDone(job *Job) error {
+	//TODO: Retry
+	_, err := w.Client.Tell("loom.server:worker.job.done", job.ID, w.Topic)
+	if err != nil {
+		w.logger.Error("tellJobDoneToServer err: %v", err)
 		return err
 	}
 	return nil
@@ -105,9 +115,25 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 	}
 
 	job := NewJob(w.ctx, msg["id"].MustString(), &jobConfig)
+
+	job.OnTaskStateChange(func(task Task) {
+		var tasks Tasks
+
+		for k, v := range job.Tasks {
+			if k == task.TaskName() {
+				tasks[k] = task
+			} else {
+				tasks[k] = v
+			}
+		}
+
+		w.tellJobTaskStateChange(job, tasks)
+	})
+
+	//When job done.
 	go func() {
 		<-job.Done()
-		for err := w.tellJobDoneToServer(job); err != nil; {
+		for err := w.tellJobDone(job); err != nil; {
 			time.Sleep(1 * time.Second)
 		}
 

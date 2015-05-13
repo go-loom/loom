@@ -22,6 +22,21 @@ const (
 	HTTP_POST = "POST"
 )
 
+const (
+	TASK_STATE_INIT    = "INIT"
+	TASK_STATE_PROCESS = "PROCESS"
+	TASK_STATE_DONE    = "DONE"
+	TASK_STATE_CANCEL  = "CANCEL"
+	TASK_STATE_ERROR   = "ERROR"
+
+	TASK_EVENT_RUN     = "run"
+	TASK_EVENT_SUCCESS = "success"
+	TASK_EVENT_CANCEL  = "cancel"
+	TASK_EVENT_ERROR   = "error"
+
+	TASK_QUIT = "quit"
+)
+
 var (
 	HTTPMethodNotSupport = errors.New("Http method is not supported")
 )
@@ -48,18 +63,37 @@ func NewTaskRunner(job *Job, task *config.Task) *TaskRunner {
 		logger: log.New("taskrunner#" + task.TaskName()),
 	}
 	tr_fsm := fsm.NewFSM(
-		"INIT",
+		TASK_STATE_INIT,
 		fsm.Events{
-			{Name: "run", Src: []string{"INIT"}, Dst: "PROCESS"},
-			{Name: "success", Src: []string{"PROCESS"}, Dst: "DONE"},
-			{Name: "cancel", Src: []string{"INIT", "PROCESS"}, Dst: "CANCEL"},
-			{Name: "error", Src: []string{"PROCESS"}, Dst: "ERROR"},
+			{
+				Name: TASK_EVENT_RUN,
+				Src:  []string{TASK_STATE_INIT},
+				Dst:  TASK_STATE_PROCESS,
+			},
+			{
+				Name: TASK_EVENT_SUCCESS,
+				Src:  []string{TASK_STATE_PROCESS},
+				Dst:  TASK_STATE_DONE,
+			},
+			{
+				Name: TASK_EVENT_CANCEL,
+				Src:  []string{TASK_STATE_INIT, TASK_STATE_PROCESS},
+				Dst:  TASK_STATE_CANCEL,
+			},
+			{
+				Name: TASK_EVENT_ERROR,
+				Src:  []string{TASK_STATE_PROCESS},
+				Dst:  TASK_STATE_ERROR,
+			},
 		},
 		fsm.Callbacks{
 			"enter_state": func(e *fsm.Event) {
-				tr.logger.Debug("S:enter state:%v", e.Dst)
+
 				tr.stateC <- e.Dst
-				tr.logger.Debug("E:enter state:%v", e.Dst)
+
+				if tr.logger.IsDebug() {
+					tr.logger.Debug("Enter state src:%v dst:%v", e.Src, e.Dst)
+				}
 			},
 		},
 	)
@@ -73,33 +107,36 @@ func NewTaskRunner(job *Job, task *config.Task) *TaskRunner {
 }
 
 func (tr *TaskRunner) Run() {
-	tr.eventC <- "run"
+	tr.eventC <- TASK_EVENT_RUN
 }
 
 func (tr *TaskRunner) Cancel() {
-	tr.eventC <- "cancel"
+	tr.eventC <- TASK_EVENT_CANCEL
 }
 
 func (tr *TaskRunner) stateListening() {
 	for {
 		select {
 		case state := <-tr.stateC:
-			tr.logger.Debug("stateC:%v", state)
-			if state == "PROCESS" {
+
+			//Call state change handlers
+			tr.job.OnTaskChanged(tr)
+
+			if state == TASK_STATE_PROCESS {
 				err := tr.processing()
 				if err != nil {
-					tr.eventC <- "error"
+					tr.eventC <- TASK_EVENT_ERROR
 				} else {
-					tr.eventC <- "success"
+					tr.eventC <- TASK_EVENT_SUCCESS
 				}
 			} else {
-				tr.job.DoneTask(tr)
-				tr.eventC <- "quit"
+				tr.job.OnTaskDone(tr)
+				tr.eventC <- TASK_QUIT
 				break
 			}
 		}
 	}
-	tr.logger.Info("end stateListening")
+	tr.logger.Info("End stateListening")
 }
 
 func (tr *TaskRunner) eventListening() {
@@ -107,7 +144,7 @@ func (tr *TaskRunner) eventListening() {
 	for {
 		select {
 		case event := <-tr.eventC:
-			if event == "quit" {
+			if event == TASK_QUIT {
 				break
 			}
 			err := tr.fsm.Event(event)

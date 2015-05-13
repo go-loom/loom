@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/koding/kite"
-	"log"
+	"gopkg.in/loom.v1/log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,6 +20,7 @@ type Broker struct {
 	workersMutex sync.RWMutex
 	kite         *kite.Kite
 	idChan       chan MessageID
+	logger       log.Logger
 }
 
 func NewBroker(dbpath string, k *kite.Kite) *Broker {
@@ -31,6 +32,7 @@ func NewBroker(dbpath string, k *kite.Kite) *Broker {
 		Workers: make(map[string]*Worker),
 		idChan:  make(chan MessageID, 4096), // Buffer
 		kite:    k,
+		logger:  log.New("Broker"),
 	}
 
 	return b
@@ -49,19 +51,20 @@ func (b *Broker) Init() error {
 	pattern := filepath.Join(b.DBPath, "*.boltdb")
 	dbfilepaths, err := filepath.Glob(pattern)
 	if err != nil {
-		logger.Error("Wrong dbpath err: %v", err)
+		b.logger.Error("Wrong dbpath err: %v", err)
 		return err
 	}
 
 	for _, p := range dbfilepaths {
 		topicName := strings.Replace(filepath.Base(p), filepath.Ext(p), "", 1)
 		b.Topic(topicName)
-		logger.Info("load topic db topic: %v db: %v", topicName, p)
+		b.logger.Info("load topic db topic: %v db: %v", topicName, p)
 	}
 
 	//Register Worker RPC
 	b.kite.HandleFunc("loom.server:worker.connect", b.HandleWorkerConnect)
-	b.kite.HandleFunc("loom.server:worker.job", b.HandleWorkerJobFeedback)
+	b.kite.HandleFunc("loom.server:worker.job.tasks.state", b.HandleWorkerJobTasksState)
+	b.kite.HandleFunc("loom.server:worker.job.done", b.HandleWorkerJobDone)
 	b.kite.OnDisconnect(b.WorkerDisconnect)
 
 	return nil
@@ -84,35 +87,45 @@ func (b *Broker) HandleWorkerConnect(r *kite.Request) (interface{}, error) {
 	topic := b.Topic(topicName)
 	topic.Dispatcher.AddWorker(w)
 
-	logger.Info("Worker %v of topic %v connected", workerId, topicName)
+	b.logger.Info("Worker %v of topic %v connected", workerId, topicName)
 	return true, nil
 }
 
-func (b *Broker) HandleWorkerJobFeedback(r *kite.Request) (interface{}, error) {
+func (b *Broker) HandleWorkerJobDone(r *kite.Request) (interface{}, error) {
 	args := r.Args.MustSlice()
 	msgIdStr := args[0].MustString()
-	topic := args[1].MustString()
-	state := args[2].MustString()
-	var tasks *[]map[string]interface{}
-	args[3].MustUnmarshal(&tasks)
-	workerId := args[4].MustString()
+	topicName := args[1].MustString()
 
-	if state == "done" {
-		topic := b.Topic(topic)
-		var msgId MessageID
-		copy(msgId[:], []byte(msgIdStr))
+	topic := b.Topic(topicName)
+	var msgId MessageID
+	copy(msgId[:], []byte(msgIdStr))
 
-		err := topic.store.SaveTasks(msgId, workerId, *tasks)
-		if err != nil {
-			logger.Error("Save job feedback messageId: %v err: %v", string(msgId[:]), err)
-		}
-
-		err = topic.FinishMessage(msgId)
-		if err != nil {
-			logger.Error("Finish message messageId: %v err:%v", string(msgId[:]), err)
-		}
+	err := topic.FinishMessage(msgId)
+	if err != nil {
+		b.logger.Error("Finish message messageId:%v err:%v", msgIdStr, err)
 	}
 
+	b.logger.Info("Finish message id:%v from worker:%v", msgIdStr, r.Client.ID)
+	return nil, nil
+}
+
+func (b *Broker) HandleWorkerJobTasksState(r *kite.Request) (interface{}, error) {
+	args := r.Args.MustSlice()
+	var tasks *[]map[string]interface{}
+	args[0].MustUnmarshal(&tasks)
+	msgIdStr := args[1].MustString()
+	topicName := args[2].MustString()
+
+	topic := b.Topic(topicName)
+	var msgId MessageID
+	copy(msgId[:], []byte(msgIdStr))
+
+	err := topic.store.SaveTasks(msgId, r.Client.ID, *tasks)
+	if err != nil {
+		b.logger.Error("Save job feedback messageId: %v err: %v", msgIdStr, err)
+	}
+
+	b.logger.Info("Received job:%v from worker:%v", msgIdStr, r.Client.ID)
 	return nil, nil
 }
 
@@ -124,7 +137,7 @@ func (b *Broker) WorkerDisconnect(c *kite.Client) {
 		topic := b.Topic(w.TopicName)
 		topic.Dispatcher.RemoveWorker(w)
 		delete(b.Workers, c.ID)
-		logger.Info("Worker %s dicconneced", c.ID)
+		b.logger.Info("Worker %s dicconneced", c.ID)
 	}
 }
 
@@ -143,7 +156,7 @@ func (b *Broker) Topic(name string) *Topic {
 	t := NewTopic(name, pendingTimeout, store)
 	err := t.Init()
 	if err != nil {
-		logger.Error("Load topic %v db err: %v", name, err)
+		b.logger.Error("Load topic %v db err: %v", name, err)
 	}
 
 	b.Topics[name] = t
@@ -194,7 +207,7 @@ func (b *Broker) idPump() {
 				//only print the error once/second
 				//TODO:
 				lastError = now
-				log.Printf("ERROR: %s", err)
+				b.logger.Error("id pump err: %s", err)
 
 			}
 			runtime.Gosched()

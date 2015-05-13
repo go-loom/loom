@@ -4,29 +4,31 @@ import (
 	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/log"
 	"gopkg.in/loom.v1/worker/config"
-	"time"
 )
 
 type Job struct {
-	ID        string
-	ctx       context.Context
-	cancelF   context.CancelFunc
-	config    *config.Job
-	tasks     map[string]Task
-	doneTaskC chan *TaskRunner
-	logger    log.Logger
+	ID                         string
+	ctx                        context.Context
+	cancelF                    context.CancelFunc
+	config                     *config.Job
+	Tasks                      Tasks
+	changeTaskC                chan *TaskRunner
+	doneTaskC                  chan *TaskRunner
+	onTaskStateChangeHandelers []func(Task)
+	logger                     log.Logger
 }
 
 func NewJob(ctx context.Context, id string, jobConfig *config.Job) *Job {
 	_ctx, cf := context.WithCancel(ctx)
 	job := &Job{
-		ID:        id,
-		ctx:       _ctx,
-		cancelF:   cf,
-		config:    jobConfig,
-		tasks:     make(map[string]Task),
-		doneTaskC: make(chan *TaskRunner),
-		logger:    log.New("job#" + id),
+		ID:          id,
+		ctx:         _ctx,
+		cancelF:     cf,
+		config:      jobConfig,
+		Tasks:       make(map[string]Task),
+		changeTaskC: make(chan *TaskRunner),
+		doneTaskC:   make(chan *TaskRunner),
+		logger:      log.New("job#" + id),
 	}
 	job.addTasks()
 
@@ -36,7 +38,7 @@ func NewJob(ctx context.Context, id string, jobConfig *config.Job) *Job {
 
 func (job *Job) addTasks() {
 	for _, task := range job.config.Tasks {
-		job.tasks[task.Name] = task
+		job.Tasks[task.Name] = task
 	}
 }
 
@@ -50,40 +52,16 @@ func (job *Job) Done() <-chan struct{} {
 	return job.ctx.Done()
 }
 
-func (job *Job) DoneTask(tr *TaskRunner) {
+func (job *Job) OnTaskDone(tr *TaskRunner) {
 	job.doneTaskC <- tr
 }
 
-func (job *Job) TasksMapInfo() []map[string]interface{} {
-	var result []map[string]interface{}
-	for _, t := range job.tasks {
-		job.logger.Debug("tasks map name:%v  output:%v", t.TaskName(), t.Output())
+func (job *Job) OnTaskChanged(tr *TaskRunner) {
+	job.changeTaskC <- tr
+}
 
-		taskMap := map[string]interface{}{
-			"name":   t.TaskName(),
-			"ok":     t.Ok(),
-			"err":    "",
-			"output": t.Output(),
-			"state":  t.State(),
-		}
-
-		ts := t.StartEndTimes()
-		if len(ts) >= 1 {
-			st := ts[0]
-			taskMap["started"] = st.UTC().Format(time.RFC3339)
-		}
-		if len(ts) >= 2 {
-			et := ts[1]
-			taskMap["ended"] = et.UTC().Format(time.RFC3339)
-		}
-
-		if t.Err() != nil {
-			taskMap["err"] = t.Err().Error()
-		}
-
-		result = append(result, taskMap)
-	}
-	return result
+func (job *Job) OnTaskStateChange(handler func(Task)) {
+	job.onTaskStateChangeHandelers = append(job.onTaskStateChangeHandelers, handler)
 }
 
 func (job *Job) do() {
@@ -93,9 +71,9 @@ func (job *Job) do() {
 			if job.logger.IsDebug() {
 				job.logger.Debug("Done taskrunner: %v ", tr.TaskName())
 			}
-			job.tasks[tr.TaskName()] = tr
+			job.Tasks[tr.TaskName()] = tr
 			job.walkNextTasks(tr.TaskName(), tr.State(), func(ntr *TaskRunner) {
-				if tr.State() == "ERROR" || tr.State() == "CANCEL" {
+				if tr.State() == TASK_STATE_ERROR || tr.State() == TASK_STATE_CANCEL {
 					ntr.Cancel()
 				} else {
 					ntr.Run()
@@ -103,6 +81,10 @@ func (job *Job) do() {
 			})
 			if job.finishJob() == true {
 				break
+			}
+		case tr := <-job.changeTaskC:
+			for _, h := range job.onTaskStateChangeHandelers {
+				h(tr)
 			}
 		}
 	}
@@ -115,31 +97,26 @@ func (job *Job) walkNextTasks(name, state string, taskRunnerFunc func(*TaskRunne
 
 	for _, t := range nextTasks {
 		tr := NewTaskRunner(job, t)
-
-		if job.logger.IsDebug() {
-			job.logger.Debug("name: %v state: %v next task: %v", name, state, tr.TaskName())
-		}
-
 		taskRunnerFunc(tr)
 
 		if job.logger.IsDebug() {
-			job.logger.Debug("Run taskrunner name:%v", tr.TaskName())
+			job.logger.Debug("Current Taskname: %v state: %v Next task: %v", name, state, tr.TaskName())
 		}
+
 	}
 	return nil
 }
 
 func (job *Job) finishJob() bool {
 	numDoneT := 0
-	for _, t := range job.tasks {
-		if t.State() == "DONE" || t.State() == "ERROR" || t.State() == "CANCEL" {
+	for _, t := range job.Tasks {
+		if t.State() == TASK_STATE_DONE || t.State() == TASK_STATE_ERROR || t.State() == TASK_STATE_CANCEL {
 			numDoneT++
 		}
 	}
-	if numDoneT == len(job.tasks) {
+	if numDoneT == len(job.Tasks) {
 		job.cancelF()
 		return true
 	}
 	return false
-
 }
