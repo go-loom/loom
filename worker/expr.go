@@ -1,7 +1,6 @@
-package config
+package worker
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -26,7 +25,6 @@ func parseExprs(env []string) ([]expr, error) {
 			if strings.Contains(e, op) {
 				//split with the op
 				parts := strings.SplitN(e, op, 2)
-
 				//TODO: Validate
 
 				if len(parts) == 2 {
@@ -48,7 +46,23 @@ func parseExprs(env []string) ([]expr, error) {
 		}
 
 		if !found {
-			return nil, fmt.Errorf("One of operator ==,!= is expected")
+
+			var key, value string
+			e := strings.TrimSpace(e)
+			if e == "" {
+				key = "JOB"
+				value = "START"
+			} else {
+				key = e
+				value = TASK_STATE_DONE
+			}
+
+			exprs = append(exprs, expr{
+				key:      key,
+				operator: 0,
+				value:    value,
+			})
+
 		}
 
 	}
