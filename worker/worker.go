@@ -117,7 +117,7 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 	job := NewJob(w.ctx, msg["id"].MustString(), &jobConfig)
 
 	job.OnTaskStateChange(func(task Task) {
-		var tasks Tasks
+		tasks := make(Tasks)
 
 		for k, v := range job.Tasks {
 			if k == task.TaskName() {

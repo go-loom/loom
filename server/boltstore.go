@@ -226,23 +226,28 @@ func (bs *BoltStore) SaveTasks(id MessageID, workerId string, tasks []map[string
 	return err
 }
 
-func (bs *BoltStore) LoadTasks(id MessageID) (map[string][]map[string]interface{}, error) {
-	var result *map[string][]map[string]interface{}
+func (bs *BoltStore) LoadTasks(id MessageID) (tasks map[string][]map[string]interface{}, err error) {
 
-	err := bs.db.View(func(tx *bolt.Tx) error {
+	err = bs.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucket_tasks)
 		v := b.Get(id[:])
 
+		var result *map[string][]map[string]interface{}
 		buf := bytes.NewBuffer(v)
 		dec := gob.NewDecoder(buf)
 		err := dec.Decode(&result)
 		if err != nil {
 			return err
 		}
+
+		if result != nil {
+			tasks = *result
+		}
+
 		return nil
 	})
 
-	return *result, err
+	return
 }
 
 func (bs *BoltStore) decodeMsg(b []byte) (*Message, error) {
