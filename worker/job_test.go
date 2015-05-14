@@ -14,13 +14,11 @@ func TestJobSerialTasks(t *testing.T) {
 		Name: "hello",
 		Cmd:  "echo hello",
 		When: "",
-		Then: "hello",
 	}
 	task2 := &config.Task{
 		Name: "world",
 		Cmd:  "echo world",
 		When: "hello",
-		Then: "",
 	}
 	task3 := &config.Task{
 		Name: "helloworld",

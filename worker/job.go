@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"fmt"
 	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/log"
 	"gopkg.in/loom.v1/worker/config"
@@ -43,9 +44,12 @@ func (job *Job) addTasks() {
 }
 
 func (job *Job) Run() {
-	job.walkNextTasks("JOB", "START", func(tr *TaskRunner) {
+	err := job.walkNextTasks(&JobStartTask{}, func(tr *TaskRunner) {
 		tr.Run()
 	})
+	if err != nil {
+		job.cancelF()
+	}
 }
 
 func (job *Job) Done() <-chan struct{} {
@@ -65,6 +69,7 @@ func (job *Job) OnTaskStateChange(handler func(Task)) {
 }
 
 func (job *Job) do() {
+L:
 	for {
 		select {
 		case tr := <-job.doneTaskC:
@@ -72,50 +77,66 @@ func (job *Job) do() {
 				job.logger.Debug("Done taskrunner: %v ", tr.TaskName())
 			}
 			job.Tasks[tr.TaskName()] = tr
-			job.walkNextTasks(tr.TaskName(), tr.State(), func(ntr *TaskRunner) {
+
+			if job.isJobFinish() == true {
+				break L
+			}
+
+			err := job.walkNextTasks(tr, func(ntr *TaskRunner) {
 				if tr.State() == TASK_STATE_ERROR || tr.State() == TASK_STATE_CANCEL {
 					ntr.Cancel()
 				} else {
 					ntr.Run()
 				}
 			})
-			if job.finishJob() == true {
+			if err != nil {
 				break
 			}
+
 		case tr := <-job.changeTaskC:
 			for _, h := range job.onTaskStateChangeHandelers {
 				h(tr)
 			}
 		}
 	}
+
+	job.cancelF()
 }
 
-func (job *Job) walkNextTasks(name, state string, taskRunnerFunc func(*TaskRunner)) error {
+func (job *Job) walkNextTasks(task Task, taskRunnerFunc func(*TaskRunner)) error {
+	tasks, err := taskWhenFilter.Filter(task, job.config.Tasks)
+	if err != nil {
+		return err
+	}
+	if len(tasks) == 0 {
+		job.logger.Error("No more tasks")
+		return fmt.Errorf("No more tasks")
+	}
 
-	var nextTasks []*config.Task
-	nextTasks = job.config.FindTasksWhen(name, state, nextTasks)
-
-	for _, t := range nextTasks {
+	for _, t := range tasks {
 		tr := NewTaskRunner(job, t)
 		taskRunnerFunc(tr)
 
 		if job.logger.IsDebug() {
-			job.logger.Debug("Current Taskname: %v state: %v Next task: %v", name, state, tr.TaskName())
+			job.logger.Debug("Current Task name:%v state:%v -> Next task: %v", task.TaskName(), task.State(), tr.TaskName())
 		}
 
 	}
 	return nil
 }
 
-func (job *Job) finishJob() bool {
+func (job *Job) isJobFinish() bool {
 	numDoneT := 0
 	for _, t := range job.Tasks {
 		if t.State() == TASK_STATE_DONE || t.State() == TASK_STATE_ERROR || t.State() == TASK_STATE_CANCEL {
 			numDoneT++
 		}
 	}
+	if job.logger.IsDebug() {
+		job.logger.Debug("isJobFinish numDoneT:%v tasks:%v", numDoneT, len(job.Tasks))
+	}
+
 	if numDoneT == len(job.Tasks) {
-		job.cancelF()
 		return true
 	}
 	return false

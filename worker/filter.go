@@ -1,7 +1,7 @@
 package worker
 
 import (
-	"strings"
+	"gopkg.in/loom.v1/worker/config"
 )
 
 type TaskWhenFilter struct{}
@@ -18,24 +18,27 @@ func (f *TaskWhenFilter) Name() string {
 	return "when"
 }
 
-func (f *TaskWhenFilter) Filter(when string, tasks Tasks) (Tasks, error) {
-	exprs, err := parseExprs([]string{when})
-	if err != nil {
-		return nil, err
-	}
+func (f *TaskWhenFilter) Filter(task Task, tasks []*config.Task) (map[string]*config.Task, error) {
+	fTasks := make(map[string]*config.Task)
 
-	filteredTasks := make(Tasks)
-
-	for _, expr := range exprs {
-		if t, ok := tasks[expr.key]; ok {
-			value := strings.ToUpper(expr.value)
-			if value == "" && t.State() == TASK_STATE_DONE {
-				filteredTasks[t.TaskName()] = t
-			} else if value == t.State() {
-				filteredTasks[t.TaskName()] = t
+	for _, t := range tasks {
+		exprs, err := parseExprs([]string{t.When})
+		if err != nil {
+			return nil, err
+		}
+		for _, expr := range exprs {
+			switch expr.operator {
+			case 0: //==
+				if task.TaskName() == expr.key && task.State() == expr.value {
+					fTasks[t.Name] = t
+				}
+			case 1: //!=
+				if task.TaskName() == expr.key && task.State() != expr.value {
+					fTasks[t.Name] = t
+				}
 			}
 		}
 	}
 
-	return filteredTasks, nil
+	return fTasks, nil
 }

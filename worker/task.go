@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"gopkg.in/loom.v1/worker/config"
 	"time"
 )
 
@@ -44,4 +45,15 @@ func (tasks Tasks) JSON() (result []map[string]interface{}) {
 	}
 
 	return
+}
+
+type JobStartTask struct {
+	config.Task
+}
+
+func (t *JobStartTask) TaskName() string {
+	return "JOB"
+}
+func (t *JobStartTask) State() string {
+	return "START"
 }

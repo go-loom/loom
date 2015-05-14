@@ -59,7 +59,7 @@ func parseExprs(env []string) ([]expr, error) {
 
 			exprs = append(exprs, expr{
 				key:      key,
-				operator: 0,
+				operator: EQ,
 				value:    value,
 			})
 

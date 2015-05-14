@@ -28,20 +28,17 @@ func TestTaskWhenFilter(t *testing.T) {
 	a := assert.Assert(t)
 	f := &TaskWhenFilter{}
 
-	tasks := make(Tasks)
-	tasks["hello"] = NewMockTask("hello", TASK_STATE_DONE)
-	tasks["world"] = NewMockTask("world", TASK_STATE_DONE)
+	var taskConfigs []*config.Task
+	taskConfigs = append(taskConfigs, &config.Task{Name: "world", When: "hello==DONE"})
 
-	when := "hello==DONE"
-	fTasks, err := f.Filter(when, tasks)
+	fTasks, err := f.Filter(NewMockTask("hello", TASK_STATE_DONE), taskConfigs)
 	if err != nil {
 		t.Error(err)
 	}
 
 	a.Equal(len(fTasks), 1)
-	a.Equal(fTasks["hello"], tasks["hello"])
 
-	if _, ok := fTasks["hello"]; !ok {
+	if _, ok := fTasks["world"]; !ok {
 		t.Error("this tasks is not hello")
 	}
 }
@@ -51,20 +48,17 @@ func TestTaskWhenFilterDefaultValue(t *testing.T) {
 	//f := &TaskWhenFilter{}
 	f := taskWhenFilter
 
-	tasks := make(Tasks)
-	tasks["hello"] = NewMockTask("hello", TASK_STATE_DONE)
-	tasks["world"] = NewMockTask("world", TASK_STATE_DONE)
+	var taskConfigs []*config.Task
+	taskConfigs = append(taskConfigs, &config.Task{Name: "world", When: "hello"})
 
-	when := "hello"
-	fTasks, err := f.Filter(when, tasks)
+	fTasks, err := f.Filter(NewMockTask("hello", TASK_STATE_DONE), taskConfigs)
 	if err != nil {
 		t.Error(err)
 	}
 
 	a.Equal(len(fTasks), 1)
-	a.Equal(fTasks["hello"], tasks["hello"])
 
-	if _, ok := fTasks["hello"]; !ok {
+	if _, ok := fTasks["world"]; !ok {
 		t.Error("this tasks is not hello")
 	}
 }

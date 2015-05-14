@@ -102,7 +102,7 @@ func NewTaskRunner(job *Job, task *config.Task) *TaskRunner {
 	go tr.stateListening()
 	go tr.eventListening()
 
-	tr.logger.Info("Start task runner")
+	tr.logger.Info("Start")
 	return tr
 }
 
@@ -115,6 +115,7 @@ func (tr *TaskRunner) Cancel() {
 }
 
 func (tr *TaskRunner) stateListening() {
+L:
 	for {
 		select {
 		case state := <-tr.stateC:
@@ -132,20 +133,20 @@ func (tr *TaskRunner) stateListening() {
 			} else {
 				tr.job.OnTaskDone(tr)
 				tr.eventC <- TASK_QUIT
-				break
+				break L
 			}
 		}
 	}
-	tr.logger.Info("End stateListening")
 }
 
 func (tr *TaskRunner) eventListening() {
 	tr.startTime = time.Now()
+L:
 	for {
 		select {
 		case event := <-tr.eventC:
 			if event == TASK_QUIT {
-				break
+				break L
 			}
 			err := tr.fsm.Event(event)
 			if err != nil {
@@ -159,7 +160,7 @@ func (tr *TaskRunner) eventListening() {
 	}
 
 	tr.endTime = time.Now()
-	tr.logger.Info("End taskrunner")
+	tr.logger.Info("End")
 }
 
 func (tr *TaskRunner) processing() error {
