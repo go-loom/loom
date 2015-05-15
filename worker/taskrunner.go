@@ -60,7 +60,7 @@ func NewTaskRunner(job *Job, task *config.Task) *TaskRunner {
 		task:   task,
 		eventC: make(chan string),
 		stateC: make(chan string),
-		logger: log.New("taskrunner#" + task.TaskName()),
+		logger: log.New("taskr#" + task.TaskName()),
 	}
 	tr_fsm := fsm.NewFSM(
 		TASK_STATE_INIT,

@@ -24,9 +24,9 @@ func NewMockTask(name, state string) Task {
 	return &MockTask{name: name, state: state}
 }
 
-func TestTaskWhenFilter(t *testing.T) {
+func TestTaskRunFilter(t *testing.T) {
 	a := assert.Assert(t)
-	f := &TaskWhenFilter{}
+	f := &TaskRunFilter{}
 
 	var taskConfigs []*config.Task
 	taskConfigs = append(taskConfigs, &config.Task{Name: "world", When: "hello==DONE"})
@@ -43,10 +43,9 @@ func TestTaskWhenFilter(t *testing.T) {
 	}
 }
 
-func TestTaskWhenFilterDefaultValue(t *testing.T) {
+func TestTaskRunFilterDefaultValue(t *testing.T) {
 	a := assert.Assert(t)
-	//f := &TaskWhenFilter{}
-	f := taskWhenFilter
+	f := taskRunFilter
 
 	var taskConfigs []*config.Task
 	taskConfigs = append(taskConfigs, &config.Task{Name: "world", When: "hello"})

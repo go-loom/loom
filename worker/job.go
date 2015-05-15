@@ -44,9 +44,7 @@ func (job *Job) addTasks() {
 }
 
 func (job *Job) Run() {
-	err := job.walkNextTasks(&JobStartTask{}, func(tr *TaskRunner) {
-		tr.Run()
-	})
+	err := job.runTasks(&JobStartTask{})
 	if err != nil {
 		job.cancelF()
 	}
@@ -74,7 +72,7 @@ L:
 		select {
 		case tr := <-job.doneTaskC:
 			if job.logger.IsDebug() {
-				job.logger.Debug("Done taskrunner: %v ", tr.TaskName())
+				job.logger.Debug("Recv done taskrunner: %v ", tr.TaskName())
 			}
 			job.Tasks[tr.TaskName()] = tr
 
@@ -82,15 +80,9 @@ L:
 				break L
 			}
 
-			err := job.walkNextTasks(tr, func(ntr *TaskRunner) {
-				if tr.State() == TASK_STATE_ERROR || tr.State() == TASK_STATE_CANCEL {
-					ntr.Cancel()
-				} else {
-					ntr.Run()
-				}
-			})
+			err := job.runTasks(tr)
 			if err != nil {
-				break
+				break L
 			}
 
 		case tr := <-job.changeTaskC:
@@ -101,27 +93,43 @@ L:
 	}
 
 	job.cancelF()
+
+	if job.logger.IsDebug() {
+		job.logger.Debug("End do loop")
+	}
 }
 
-func (job *Job) walkNextTasks(task Task, taskRunnerFunc func(*TaskRunner)) error {
-	tasks, err := taskWhenFilter.Filter(task, job.config.Tasks)
+func (job *Job) runTasks(task Task) error {
+	tasks, err := taskRunFilter.Filter(task, job.config.Tasks)
 	if err != nil {
 		return err
 	}
-	if len(tasks) == 0 {
-		job.logger.Error("No more tasks")
-		return fmt.Errorf("No more tasks")
-	}
-
 	for _, t := range tasks {
 		tr := NewTaskRunner(job, t)
-		taskRunnerFunc(tr)
+		tr.Run()
 
 		if job.logger.IsDebug() {
 			job.logger.Debug("Current Task name:%v state:%v -> Next task: %v", task.TaskName(), task.State(), tr.TaskName())
 		}
-
 	}
+
+	ctasks, err := taskCancelFilter.Filter(task, job.config.Tasks)
+	if err != nil {
+		return err
+	}
+	for _, t := range ctasks {
+		tr := NewTaskRunner(job, t)
+		tr.Cancel()
+
+		if job.logger.IsDebug() {
+			job.logger.Debug("Current Task name:%v state:%v -> Cancel task:%v", task.TaskName(), task.State(), tr.TaskName())
+		}
+	}
+
+	if len(tasks) == 0 && len(ctasks) == 0 {
+		return fmt.Errorf("The task has no related next tasks (%v)", task.TaskName())
+	}
+
 	return nil
 }
 
