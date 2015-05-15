@@ -72,7 +72,7 @@ L:
 		select {
 		case tr := <-job.doneTaskC:
 			if job.logger.IsDebug() {
-				job.logger.Debug("Recv done taskrunner: %v ", tr.TaskName())
+				job.logger.Debug("Recv done taskrunner name:%v state:%v", tr.TaskName(), tr.State())
 			}
 			job.Tasks[tr.TaskName()] = tr
 
@@ -80,10 +80,7 @@ L:
 				break L
 			}
 
-			err := job.runTasks(tr)
-			if err != nil {
-				break L
-			}
+			job.runTasks(tr)
 
 		case tr := <-job.changeTaskC:
 			for _, h := range job.onTaskStateChangeHandelers {
@@ -100,11 +97,11 @@ L:
 }
 
 func (job *Job) runTasks(task Task) error {
-	tasks, err := taskRunFilter.Filter(task, job.config.Tasks)
+	matchTasks, notmatchTasks, err := taskRunFilter.Filter(task, job.config.Tasks)
 	if err != nil {
 		return err
 	}
-	for _, t := range tasks {
+	for _, t := range matchTasks {
 		tr := NewTaskRunner(job, t)
 		tr.Run()
 
@@ -113,11 +110,7 @@ func (job *Job) runTasks(task Task) error {
 		}
 	}
 
-	ctasks, err := taskCancelFilter.Filter(task, job.config.Tasks)
-	if err != nil {
-		return err
-	}
-	for _, t := range ctasks {
+	for _, t := range notmatchTasks {
 		tr := NewTaskRunner(job, t)
 		tr.Cancel()
 
@@ -126,7 +119,7 @@ func (job *Job) runTasks(task Task) error {
 		}
 	}
 
-	if len(tasks) == 0 && len(ctasks) == 0 {
+	if len(matchTasks) == 0 && len(notmatchTasks) == 0 {
 		return fmt.Errorf("The task has no related next tasks (%v)", task.TaskName())
 	}
 

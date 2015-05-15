@@ -31,15 +31,23 @@ func TestTaskRunFilter(t *testing.T) {
 	var taskConfigs []*config.Task
 	taskConfigs = append(taskConfigs, &config.Task{Name: "world", When: "hello==DONE"})
 
-	fTasks, err := f.Filter(NewMockTask("hello", TASK_STATE_DONE), taskConfigs)
+	matched, notmatched, err := f.Filter(NewMockTask("hello", TASK_STATE_DONE), taskConfigs)
 	if err != nil {
 		t.Error(err)
 	}
 
-	a.Equal(len(fTasks), 1)
+	a.Equal(len(matched), 1)
+	a.Equal(len(notmatched), 0)
 
-	if _, ok := fTasks["world"]; !ok {
-		t.Error("this tasks is not hello")
+	found := false
+	for _, t := range matched {
+		if t.TaskName() == "world" {
+			found = true
+		}
+	}
+
+	if !found {
+		t.Error("this tasks has not hello task")
 	}
 }
 
@@ -50,14 +58,79 @@ func TestTaskRunFilterDefaultValue(t *testing.T) {
 	var taskConfigs []*config.Task
 	taskConfigs = append(taskConfigs, &config.Task{Name: "world", When: "hello"})
 
-	fTasks, err := f.Filter(NewMockTask("hello", TASK_STATE_DONE), taskConfigs)
+	matched, notmatched, err := f.Filter(NewMockTask("hello", TASK_STATE_DONE), taskConfigs)
 	if err != nil {
 		t.Error(err)
 	}
 
-	a.Equal(len(fTasks), 1)
+	a.Equal(len(matched), 1)
+	a.Equal(len(notmatched), 0)
 
-	if _, ok := fTasks["world"]; !ok {
-		t.Error("this tasks is not hello")
+	found := false
+	for _, t := range matched {
+		if t.TaskName() == "world" {
+			found = true
+		}
 	}
+
+	if !found {
+		t.Error("this tasks has not hello task")
+	}
+
+}
+
+func TestTaskRunFilterJOBTask(t *testing.T) {
+	a := assert.Assert(t)
+	f := taskRunFilter
+
+	var taskConfigs []*config.Task
+	taskConfigs = append(taskConfigs, &config.Task{Name: "world", When: "JOB"})
+
+	matched, notmatched, err := f.Filter(NewMockTask("JOB", "START"), taskConfigs)
+	if err != nil {
+		t.Error(err)
+	}
+
+	a.Equal(len(matched), 1)
+	a.Equal(len(notmatched), 0)
+
+	found := false
+	for _, t := range matched {
+		if t.TaskName() == "world" {
+			found = true
+		}
+	}
+
+	if !found {
+		t.Error("this tasks has not hello task")
+	}
+
+}
+
+func TestTaskRunFilterJOBTask2(t *testing.T) {
+	a := assert.Assert(t)
+	f := taskRunFilter
+
+	var taskConfigs []*config.Task
+	taskConfigs = append(taskConfigs, &config.Task{Name: "world", When: ""})
+
+	matched, notmatched, err := f.Filter(NewMockTask("JOB", "START"), taskConfigs)
+	if err != nil {
+		t.Error(err)
+	}
+
+	a.Equal(len(matched), 1)
+	a.Equal(len(notmatched), 0)
+
+	found := false
+	for _, t := range matched {
+		if t.TaskName() == "world" {
+			found = true
+		}
+	}
+
+	if !found {
+		t.Error("this tasks has not hello task")
+	}
+
 }

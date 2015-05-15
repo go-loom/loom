@@ -49,7 +49,7 @@ func parseExprs(env []string) ([]expr, error) {
 
 			var key, value string
 			e := strings.TrimSpace(e)
-			if e == "" {
+			if e == "" || e == "JOB" {
 				key = "JOB"
 				value = "START"
 			} else {
