@@ -4,7 +4,10 @@ import (
 	"github.com/codegangsta/cli"
 	"gopkg.in/loom.v1/server"
 	"gopkg.in/loom.v1/worker"
+	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	//"github.com/seanpont/assert"
 )
@@ -66,5 +69,21 @@ func ServerAction(c *cli.Context) {
 func WorkerAction(c *cli.Context) {
 	serverURL := c.String("serverurl")
 	topic := c.String("topic")
+	shutdown(worker.Close)
 	worker.Main(serverURL, topic, VERSION)
+}
+
+func shutdown(callback func() error) {
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		s := <-c
+		log.Println("Got signal: ", s)
+		err := callback()
+		if err != nil {
+			log.Print("Error shutdown: ", err)
+		}
+		os.Exit(1)
+	}()
 }

@@ -23,3 +23,8 @@ func Main(serverURL, topic, version string) {
 
 	k.Run()
 }
+
+func Close() error {
+
+	return nil
+}
