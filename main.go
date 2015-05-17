@@ -69,8 +69,9 @@ func ServerAction(c *cli.Context) {
 func WorkerAction(c *cli.Context) {
 	serverURL := c.String("serverurl")
 	topic := c.String("topic")
-	shutdown(worker.Close)
-	worker.Main(serverURL, topic, VERSION)
+	w := worker.New(serverURL, topic, VERSION)
+	shutdown(w.Close)
+	w.Run()
 }
 
 func shutdown(callback func() error) {
@@ -84,6 +85,5 @@ func shutdown(callback func() error) {
 		if err != nil {
 			log.Print("Error shutdown: ", err)
 		}
-		os.Exit(1)
 	}()
 }

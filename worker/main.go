@@ -8,7 +8,7 @@ import (
 
 var logger = log.NewWithSync("loom-worker")
 
-func Main(serverURL, topic, version string) {
+func New(serverURL, topic, version string) *Worker {
 	workerName := "loom-worker-" + topic
 
 	k := kite.New(workerName, version)
@@ -21,10 +21,5 @@ func Main(serverURL, topic, version string) {
 		os.Exit(1)
 	}
 
-	k.Run()
-}
-
-func Close() error {
-
-	return nil
+	return w
 }

@@ -61,6 +61,16 @@ func (w *Worker) Init() error {
 	return nil
 }
 
+func (w *Worker) Run() {
+	w.kite.Run()
+}
+
+func (w *Worker) Close() error {
+	w.logger.Info("Closing worker...")
+	w.kite.Close()
+	return nil
+}
+
 func (w *Worker) tellHelloToServer() error {
 	response, err := w.Client.Tell("loom.server:worker.connect", w.ID, w.Topic)
 	if err != nil {
