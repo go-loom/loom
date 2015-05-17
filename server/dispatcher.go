@@ -40,6 +40,7 @@ func (d *Dispatcher) AddWorker(w *Worker) {
 		go d.dispatching()
 		d.running = true
 	}
+	d.logger.Info("AddWorker workers:%v running:%v", len(d.workers), d.running)
 }
 
 func (d *Dispatcher) RemoveWorker(w *Worker) {
@@ -50,13 +51,19 @@ func (d *Dispatcher) RemoveWorker(w *Worker) {
 		d.quitChan <- struct{}{}
 		d.running = false
 	}
+
+	d.logger.Info("RemoveWorker workers:%v running:%v", len(d.workers), d.running)
 }
 
 func (d *Dispatcher) dispatching() {
+	d.logger.Info("Start dispatching")
+
+L:
 	for {
 		select {
 		case <-d.quitChan:
-			break
+			d.logger.Info("Recv quit dispatching")
+			break L
 		case msg := <-d.msgPopChan:
 			workers := d.selectWorkers()
 			if len(workers) <= 0 {
@@ -82,6 +89,8 @@ func (d *Dispatcher) dispatching() {
 			}
 		}
 	}
+
+	d.logger.Info("End dispatching")
 }
 
 func (d *Dispatcher) selectWorkers() []*Worker {

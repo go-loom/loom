@@ -45,7 +45,8 @@ func (t *Topic) Init() error {
 		return nil
 	})
 
-	go t.msgDispatch()
+	go t.msgPopDispatch()
+	go t.msgPushDispatch()
 
 	return err
 }
@@ -137,7 +138,17 @@ func (t *Topic) pop() (msg *Message) {
 
 }
 
-func (t *Topic) msgDispatch() {
+func (t *Topic) msgPopDispatch() {
+	for {
+		msg := t.pop()
+		if t.logger.IsDebug() {
+			t.logger.Debug("From queue msg pop id:%v", string(msg.ID[:]))
+		}
+		t.Dispatcher.msgPopChan <- msg
+	}
+}
+
+func (t *Topic) msgPushDispatch() {
 	for {
 		select {
 		case msg := <-t.Dispatcher.msgPushChan:
@@ -146,13 +157,6 @@ func (t *Topic) msgDispatch() {
 			if t.logger.IsDebug() {
 				t.logger.Debug("From dispatcher msg push id:%v", string(msg.ID[:]))
 			}
-		default:
-			t.logger.Debug("pop")
-			msg := t.pop()
-			if t.logger.IsDebug() {
-				t.logger.Debug("From queue msg pop id:%v", string(msg.ID[:]))
-			}
-			t.Dispatcher.msgPopChan <- msg
 		}
 	}
 }
