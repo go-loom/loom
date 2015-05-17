@@ -1,6 +1,7 @@
 package server
 
 import (
+	"gopkg.in/loom.v1/log"
 	"sync"
 	"time"
 )
@@ -14,10 +15,11 @@ type Topic struct {
 	waitingCh            chan interface{}
 	mutex                sync.Mutex
 	store                Store
+	logger               log.Logger
 }
 
 func NewTopic(name string, pendingTimeout time.Duration, store Store) *Topic {
-	dispatcher := NewDispatcher(name)
+	dispatcher := NewDispatcher(name, store)
 
 	topic := &Topic{
 		Name:                 name,
@@ -27,6 +29,7 @@ func NewTopic(name string, pendingTimeout time.Duration, store Store) *Topic {
 		pendingCheckInterval: 10 * time.Second,
 		waitingCh:            make(chan interface{}),
 		store:                store,
+		logger:               log.New("Topic:" + name),
 	}
 
 	return topic
@@ -43,14 +46,16 @@ func (t *Topic) Init() error {
 	})
 
 	go t.msgDispatch()
-	go t.pendingChecker()
 
 	return err
 }
 
 func (t *Topic) PushMessage(msg *Message) {
+	msg.State = MSG_ENQUEUED
 	t.store.PutMessage(msg)
 	t.push(msg)
+
+	t.logger.Info("Pushed message id:%s", string(msg.ID[:]))
 }
 
 func (t *Topic) FinishMessage(id MessageID) error {
@@ -66,7 +71,39 @@ func (t *Topic) FinishMessage(id MessageID) error {
 		return err
 	}
 
+	t.logger.Info("Finished message id:%v", msg.ID)
 	return nil
+}
+
+func (t *Topic) PushPendingMsgsInWorker(workerId string) {
+	pms, err := t.store.GetPendingMsgsInWorker(workerId)
+	if err != nil {
+		t.logger.Error("PushPendingMsgsInWorker.Get err: %v", err)
+		return
+	}
+
+	num := 0
+	for _, pm := range pms {
+		m, err := t.store.GetMessage(pm.MessageID)
+		if err != nil {
+			t.logger.Error("PushPendingMsgsInWorker.GetMessage err: %v", err)
+			continue
+		}
+
+		if m.State == MSG_DEQUEUED {
+			t.PushMessage(m)
+			num++
+			t.logger.Info("Message %v is re-pushed to queue", string(m.ID[:]))
+		}
+	}
+
+	err = t.store.RemovePendingMsgsInWorker(workerId)
+	if err != nil {
+		t.logger.Error("PushPendingMsgsInWorker.Remove err:%v", err)
+	}
+
+	t.logger.Info("Pushed pending msgs:%v", num)
+	return
 }
 
 func (t *Topic) push(msg *Message) {
@@ -78,7 +115,7 @@ func (t *Topic) push(msg *Message) {
 		err := t.Queue.Push(msg)
 		if err != nil {
 			//TODO:
-			logger.Error("err: %v", err)
+			t.logger.Error("push err: %v", err)
 		}
 	}
 }
@@ -104,17 +141,23 @@ func (t *Topic) msgDispatch() {
 	for {
 		select {
 		case msg := <-t.Dispatcher.msgPushChan:
+			t.logger.Debug("dispatcher.push")
 			t.PushMessage(msg)
+			if t.logger.IsDebug() {
+				t.logger.Debug("From dispatcher msg push id:%v", string(msg.ID[:]))
+			}
 		default:
+			t.logger.Debug("pop")
 			msg := t.pop()
+			if t.logger.IsDebug() {
+				t.logger.Debug("From queue msg pop id:%v", string(msg.ID[:]))
+			}
 			t.Dispatcher.msgPopChan <- msg
-			now := time.Now()
-			t.store.PutMessage(msg)
-			t.store.PutPendingMsgID(&now, msg.ID)
 		}
 	}
 }
 
+/*
 func (t *Topic) pendingChecker() {
 
 	//st := time.Now()
@@ -151,3 +194,4 @@ func (t *Topic) pendingChecker() {
 	}
 
 }
+*/

@@ -8,7 +8,7 @@
     },
     {
       "name": "world",
-      "cmd": "echo world ; sleep 100",
+      "cmd": "echo world ; sleep 5000",
       "when": "hello",
       "then": "world"
     },

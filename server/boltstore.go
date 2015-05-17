@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"encoding/gob"
 	"github.com/boltdb/bolt"
-	"time"
+	//	"time"
 )
 
 var (
-	bucket_messages    = []byte("messages")
-	bucket_pending_ids = []byte("pending_ids")
-	bucket_tasks       = []byte("tasks")
+	bucket_messages     = []byte("messages")
+	bucket_pending_msgs = []byte("pending_messages")
+	bucket_tasks        = []byte("tasks")
+
+	bucket_pending_msgs_timetable = []byte("timetable")
 )
 
 type BoltStore struct {
@@ -18,7 +20,7 @@ type BoltStore struct {
 	db   *bolt.DB
 }
 
-func NewBlotStore(path string) *BoltStore {
+func NewBoltStore(path string) *BoltStore {
 	bs := &BoltStore{
 		Path: path,
 	}
@@ -36,7 +38,7 @@ func (bs *BoltStore) Open() error {
 
 	err = bs.db.Update(func(tx *bolt.Tx) error {
 
-		buckets := [][]byte{bucket_messages, bucket_pending_ids, bucket_tasks}
+		buckets := [][]byte{bucket_messages, bucket_pending_msgs, bucket_tasks}
 		for _, b := range buckets {
 			_, err = tx.CreateBucketIfNotExists(b)
 			if err != nil {
@@ -128,6 +130,84 @@ func (bs *BoltStore) WalkMessage(walkFunc func(*Message) error) error {
 	return err
 }
 
+func (bs *BoltStore) AddPendingMsg(msg *PendingMessage) error {
+	err := bs.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucket_pending_msgs)
+
+		//worker nested bucket
+		workerB, err := b.CreateBucketIfNotExists([]byte("worker:" + msg.WorkerId))
+		if err != nil {
+			return err
+		}
+
+		var buf bytes.Buffer
+		enc := gob.NewEncoder(&buf)
+		enc.Encode(msg)
+
+		err = workerB.Put(msg.MessageID[:], buf.Bytes())
+		if err != nil {
+			return err
+		}
+
+		//timetable nested bucket
+		/*
+			timeB, err := b.CreateBucketIfNotExists(bucket_pending_msgs_timetable)
+			if err != nil {
+				return err
+			}
+		*/
+		//t := []byte(msg.Timeout.Format(time.RFC3339))
+
+		return err
+	})
+
+	return err
+}
+
+func (bs *BoltStore) RemovePendingMsgsInWorker(workerID string) error {
+	err := bs.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucket_pending_msgs)
+		key := []byte("worker:" + workerID)
+		workerB := b.Bucket(key)
+		if workerB == nil {
+			return nil
+		}
+
+		err := b.DeleteBucket(key)
+		return err
+	})
+
+	return err
+}
+
+func (bs *BoltStore) GetPendingMsgsInWorker(workerID string) (msgs []*PendingMessage, err error) {
+	key := []byte("worker:" + workerID)
+
+	err = bs.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucket_pending_msgs)
+		wB := b.Bucket(key)
+		if wB == nil {
+			return nil
+		}
+		err := wB.ForEach(func(k, v []byte) error {
+			var msg PendingMessage
+			buf := bytes.NewBuffer(v)
+			dec := gob.NewDecoder(buf)
+			err := dec.Decode(&msg)
+			if err != nil {
+				return err
+			}
+			msgs = append(msgs, &msg)
+			return nil
+		})
+
+		return err
+	})
+
+	return
+}
+
+/*
 func (bs *BoltStore) GetPendingMsgIDList(st *time.Time, ed *time.Time) ([]MessageID, error) {
 	var ids []MessageID
 	err := bs.db.View(func(tx *bolt.Tx) error {
@@ -201,6 +281,7 @@ func (bs *BoltStore) RemovePendingMsgID(ts *time.Time) error {
 
 	return err
 }
+*/
 
 //	SaveTasks(id MessageID, workerId string, tasks []map[string]interface{}) error
 //	LoadTasks(id MessageID) (map[string][]map[string]interface{}, error)

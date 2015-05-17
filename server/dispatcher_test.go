@@ -15,7 +15,7 @@ func TestDispatcherRunning(t *testing.T) {
 
 	w := NewConnectedWorker("1", topicName, client)
 
-	dispatcher := NewDispatcher(topicName)
+	dispatcher := NewDispatcher(topicName, nil)
 	dispatcher.AddWorker(w)
 
 	if dispatcher.running != true {
@@ -38,7 +38,7 @@ func TestDispatcherSendMessage(t *testing.T) {
 
 	w := NewConnectedWorker("1", topicName, client)
 
-	dispatcher := NewDispatcher(topicName)
+	dispatcher := NewDispatcher(topicName, nil)
 	dispatcher.AddWorker(w)
 
 	factory := &guidFactory{}

@@ -67,6 +67,7 @@ func (w *Worker) Run() {
 
 func (w *Worker) Close() error {
 	w.logger.Info("Closing worker...")
+	w.tellWorkerShutdown()
 	w.kite.Close()
 	return nil
 }
@@ -100,7 +101,17 @@ func (w *Worker) tellJobDone(job *Job) error {
 	//TODO: Retry
 	_, err := w.Client.Tell("loom.server:worker.job.done", job.ID, w.Topic)
 	if err != nil {
-		w.logger.Error("tellJobDoneToServer err: %v", err)
+		w.logger.Error("can't tell JobDone to server err: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (w *Worker) tellWorkerShutdown() error {
+	//TODO: Retry?
+	_, err := w.Client.Tell("loom.server:worker.shutdown")
+	if err != nil {
+		w.logger.Error("can't tell worker shutdown err:%v", err)
 		return err
 	}
 	return nil

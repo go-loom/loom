@@ -14,11 +14,14 @@ type Store interface {
 	RemoveMessage(id MessageID) error
 	WalkMessage(walkFunc func(*Message) error) error
 
-	//GetPendingMsgIDList(st *time.Time, et *time.Time) ([]MessageID, error)
-	WalkPendingMsgId(st *time.Time, et *time.Time,
-		walkFunc func(ts *time.Time, id MessageID) error) error
-	PutPendingMsgID(ts *time.Time, id MessageID) error
-	RemovePendingMsgID(ts *time.Time) error
+	AddPendingMsg(msg *PendingMessage) error
+	RemovePendingMsgsInWorker(workerID string) error
+	GetPendingMsgsInWorker(workerID string) ([]*PendingMessage, error)
+
+	/*
+		GetPendingMsgIdsBeforeTime(ts time.Time) ([]MessageID, error)
+		UpdatePendingMsgIdsAtTime(ts time.Time, msgIds []MessageID) error
+	*/
 
 	SaveTasks(id MessageID, workerId string, tasks []map[string]interface{}) error
 	LoadTasks(id MessageID) (map[string][]map[string]interface{}, error)
@@ -27,10 +30,16 @@ type Store interface {
 	Close() error
 }
 
+type PendingMessage struct {
+	MessageID MessageID
+	WorkerId  string
+	PendingAt time.Time
+}
+
 func NewTopicStore(storeType string, path string, topic string) (Store, error) {
 	if storeType == "bolt" {
 		path := filepath.Join(path, topic+".boltdb")
-		store := NewBlotStore(path)
+		store := NewBoltStore(path)
 		return store, nil
 	}
 
