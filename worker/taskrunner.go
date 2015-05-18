@@ -42,25 +42,27 @@ var (
 )
 
 type TaskRunner struct {
-	job       *Job
-	task      *config.Task
-	err       error
-	output    string
-	fsm       *fsm.FSM
-	eventC    chan string
-	stateC    chan string
-	logger    log.Logger
-	startTime time.Time
-	endTime   time.Time
+	job         *Job
+	task        *config.Task
+	err         error
+	output      string
+	fsm         *fsm.FSM
+	eventC      chan string
+	stateC      chan string
+	logger      log.Logger
+	startTime   time.Time
+	endTime     time.Time
+	templateCtx map[string]interface{}
 }
 
-func NewTaskRunner(job *Job, task *config.Task) *TaskRunner {
+func NewTaskRunner(job *Job, task *config.Task, templateCtx map[string]interface{}) *TaskRunner {
 	tr := &TaskRunner{
-		job:    job,
-		task:   task,
-		eventC: make(chan string),
-		stateC: make(chan string),
-		logger: log.New("taskr#" + task.TaskName()),
+		job:         job,
+		task:        task,
+		eventC:      make(chan string),
+		stateC:      make(chan string),
+		templateCtx: templateCtx,
+		logger:      log.New("taskr#" + task.TaskName()),
 	}
 	tr_fsm := fsm.NewFSM(
 		TASK_STATE_INIT,
@@ -187,7 +189,12 @@ func (tr *TaskRunner) processing() error {
 }
 
 func (tr *TaskRunner) cmd() error {
-	cmdstr := tr.task.Cmd
+
+	cmdstr, err := tr.task.Read(tr.task.Cmd, tr.templateCtx)
+	if err != nil {
+		tr.logger.Error("cmd statement has template error:%v", err)
+		return err
+	}
 	cmd := exec.Command("bash", "-c", cmdstr)
 	out, err := cmd.CombinedOutput()
 	tr.output = string(out)
@@ -217,6 +224,12 @@ func (tr *TaskRunner) http() (err error) {
 func (tr *TaskRunner) httpGet() error {
 	httpcfg := tr.task.HTTP
 	url := httpcfg.URL
+	url, err := tr.task.Read(url, tr.templateCtx)
+	if err != nil {
+		tr.logger.Error("http/get has an template error:%v", err)
+		return err
+	}
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -232,8 +245,16 @@ func (tr *TaskRunner) httpGet() error {
 }
 
 func (tr *TaskRunner) httpPost() error {
+	tctx := tr.templateCtx
+
 	httpcfg := tr.task.HTTP
+
 	url := httpcfg.URL
+	url, err := tr.task.Read(url, tctx)
+	if err != nil {
+		return err
+	}
+
 	params := httpcfg.Data
 	files := httpcfg.Files
 
@@ -247,7 +268,12 @@ func (tr *TaskRunner) httpPost() error {
 				return err
 			}
 
-			_file, err := os.Open(file.Path)
+			path, err := tr.task.Read(file.Path, tctx)
+			if err != nil {
+				return err
+			}
+
+			_file, err := os.Open(path)
 			if err != nil {
 				return err
 			}
@@ -267,10 +293,16 @@ func (tr *TaskRunner) httpPost() error {
 
 	//data handling
 	for key, val := range params {
+		val, err = tr.task.Read(val, tctx)
+		if err != nil {
+			tr.logger.Error("http:post has an template error:%v", err)
+			return err
+		}
+
 		_ = writer.WriteField(key, val)
 	}
 
-	err := writer.Close()
+	err = writer.Close()
 	if err != nil {
 		return err
 	}

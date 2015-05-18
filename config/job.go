@@ -2,5 +2,6 @@ package config
 
 type Job struct {
 	TaskDefault *TaskDefault `json:"task_default,omitempty"`
-	Tasks       []*Task      `json:"tasks,omitempty"`
+	Tasks       []*Task      `json:"tasks"`
+	//Tasks       map[string]*Task `json:"tasks"`
 }

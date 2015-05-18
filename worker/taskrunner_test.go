@@ -19,13 +19,21 @@ func TestNewTaskRunner(t *testing.T) {
 	ctx := context.Background()
 	task := &config.Task{
 		Name: "helloworld",
-		Cmd:  "echo helloworld",
+		Cmd:  "echo {{ .JOB_ID }}",
 	}
 	jobConfig := &config.Job{}
 	jobConfig.Tasks = append(jobConfig.Tasks, task)
 
+	tasks := make(Tasks)
+	for _, t := range jobConfig.Tasks {
+		tasks[t.Name] = t
+	}
+
+	tctx := tasks.JSON()
+	tctx["JOB_ID"] = "id"
+
 	job := NewJob(ctx, "id", jobConfig)
-	tr := NewTaskRunner(job, task)
+	tr := NewTaskRunner(job, task, tctx)
 	tr.Run()
 
 	<-job.ctx.Done()
@@ -59,7 +67,7 @@ func TestTaskRunnerHTTPGet(t *testing.T) {
 	jobConfig.Tasks = append(jobConfig.Tasks, task)
 
 	job := NewJob(ctx, "id", jobConfig)
-	tr := NewTaskRunner(job, task)
+	tr := NewTaskRunner(job, task, nil)
 
 	tr.Run()
 
@@ -154,7 +162,7 @@ func TestTaskRunnerHTTPPost(t *testing.T) {
 	jobConfig.Tasks = append(jobConfig.Tasks, task)
 
 	job := NewJob(ctx, "id", jobConfig)
-	tr := NewTaskRunner(job, task)
+	tr := NewTaskRunner(job, task, nil)
 
 	tr.Run()
 

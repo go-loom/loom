@@ -55,8 +55,11 @@ func (job *Job) Run() {
 
 	job.jobEndTasks = jobEndTasks
 
+	taskTemplateMap := job.Tasks.JSON()
+	taskTemplateMap["JOB_ID"] = job.ID
+
 	for _, t := range matchTasks {
-		tr := NewTaskRunner(job, t)
+		tr := NewTaskRunner(job, t, taskTemplateMap)
 		tr.Run()
 
 		if job.logger.IsDebug() {
@@ -133,8 +136,10 @@ func (job *Job) runTasks(task Task, tasks ...[]*config.Task) error {
 	if err != nil {
 		return err
 	}
+	taskTemplateMap := job.Tasks.JSON()
+	taskTemplateMap["JOB_ID"] = job.ID
 	for _, t := range matchTasks {
-		tr := NewTaskRunner(job, t)
+		tr := NewTaskRunner(job, t, taskTemplateMap)
 		tr.Run()
 
 		if job.logger.IsDebug() {
@@ -143,7 +148,7 @@ func (job *Job) runTasks(task Task, tasks ...[]*config.Task) error {
 	}
 
 	for _, t := range notmatchTasks {
-		tr := NewTaskRunner(job, t)
+		tr := NewTaskRunner(job, t, taskTemplateMap)
 		tr.Cancel()
 
 		if job.logger.IsDebug() {

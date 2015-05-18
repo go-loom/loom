@@ -16,7 +16,8 @@ type Task interface {
 
 type Tasks map[string]Task
 
-func (tasks Tasks) JSON() (result []map[string]interface{}) {
+func (tasks Tasks) JSON() (result map[string]interface{}) {
+	result = make(map[string]interface{})
 	for _, t := range tasks {
 
 		taskMap := map[string]interface{}{
@@ -41,7 +42,7 @@ func (tasks Tasks) JSON() (result []map[string]interface{}) {
 			taskMap["err"] = t.Err().Error()
 		}
 
-		result = append(result, taskMap)
+		result[t.TaskName()] = taskMap
 	}
 
 	return
