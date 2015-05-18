@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/seanpont/assert"
 	"golang.org/x/net/context"
-	"gopkg.in/loom.v1/worker/config"
+	"gopkg.in/loom.v1/config"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"

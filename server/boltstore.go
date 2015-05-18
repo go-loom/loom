@@ -313,6 +313,10 @@ func (bs *BoltStore) LoadTasks(id MessageID) (tasks map[string][]map[string]inte
 		b := tx.Bucket(bucket_tasks)
 		v := b.Get(id[:])
 
+		if len(v) <= 0 {
+			return nil
+		}
+
 		var result *map[string][]map[string]interface{}
 		buf := bytes.NewBuffer(v)
 		dec := gob.NewDecoder(buf)

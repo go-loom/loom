@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/koding/kite"
 	"golang.org/x/net/context"
+	"gopkg.in/loom.v1/config"
 	"gopkg.in/loom.v1/log"
-	"gopkg.in/loom.v1/worker/config"
 	"sync"
 	"time"
 )

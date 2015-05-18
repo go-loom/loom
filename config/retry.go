@@ -5,8 +5,8 @@ import (
 )
 
 type Retry struct {
-	Number           int
-	Interval         string
+	Number           int    `json:"number,omitempty"`
+	Interval         string `json:"interval,omitempty"`
 	intervalDuration *time.Duration
 }
 

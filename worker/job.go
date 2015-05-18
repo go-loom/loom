@@ -3,8 +3,8 @@ package worker
 import (
 	"fmt"
 	"golang.org/x/net/context"
+	"gopkg.in/loom.v1/config"
 	"gopkg.in/loom.v1/log"
-	"gopkg.in/loom.v1/worker/config"
 )
 
 type Job struct {

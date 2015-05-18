@@ -6,19 +6,19 @@ import (
 
 type Task struct {
 	templateReader
-	Name    string
-	Cmd     string
-	HTTP    *HTTP
-	When    string
-	Timeout string
-	Retry   Retry
+	Name    string `json:"name"`
+	Cmd     string `json:"cmd,omitempty"`
+	HTTP    *HTTP  `json:"http,omitempty"`
+	When    string `json:"when,omitempty"`
+	Timeout string `json:"timeout,omitempty"`
+	Retry   *Retry `json:"retry,omitempty"`
 }
 
 type TaskDefault struct {
 	templateReader
-	Retry   Retry
-	Timeout string
-	Vars    map[string]string
+	Retry   *Retry            `json:"retry,omitempty"`
+	Timeout string            `json:"timeout,omitempty"`
+	Vars    map[string]string `json:"vars,omitempty"`
 }
 
 func (t *Task) TaskName() string {

@@ -2,7 +2,7 @@ package worker
 
 import (
 	"github.com/seanpont/assert"
-	"gopkg.in/loom.v1/worker/config"
+	"gopkg.in/loom.v1/config"
 	"testing"
 )
 

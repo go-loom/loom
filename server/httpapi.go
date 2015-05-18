@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"github.com/julienschmidt/httprouter"
+	"gopkg.in/loom.v1/config"
 	"io/ioutil"
 	"net/http"
 )
@@ -15,6 +16,12 @@ func PushHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
+	var job config.Job
+	if err := json.Unmarshal(queueValue, &job); err != nil {
+		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
+		return
+	}
+
 	msg, err := broker.PushMessage(queueName, queueValue)
 	if err != nil {
 		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
@@ -23,7 +30,7 @@ func PushHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	send(w, http.StatusCreated, Json{
 		"id":      string(msg.ID[:]),
-		"value":   string(msg.Value),
+		"tasks":   job.Tasks,
 		"created": msg.Created,
 		"state":   msg.State,
 	})
@@ -44,8 +51,14 @@ func GetHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
+	var job config.Job
+	if err := json.Unmarshal(msg.Value, &job); err != nil {
+		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
+		return
+	}
+
 	topic := broker.Topic(queueName)
-	tasks, err := topic.store.LoadTasks(msgId)
+	resultTasks, err := topic.store.LoadTasks(msgId)
 	if err != nil {
 		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
 		return
@@ -53,10 +66,10 @@ func GetHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	send(w, http.StatusCreated, Json{
 		"id":      string(msg.ID[:]),
-		"value":   string(msg.Value),
+		"tasks":   job.Tasks,
 		"created": msg.Created,
 		"state":   msg.State,
-		"tasks":   tasks,
+		"results": resultTasks,
 	})
 
 	return

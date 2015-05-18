@@ -1,7 +1,7 @@
 package worker
 
 import (
-	"gopkg.in/loom.v1/worker/config"
+	"gopkg.in/loom.v1/config"
 	"time"
 )
 

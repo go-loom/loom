@@ -6,15 +6,15 @@ import (
 )
 
 type HTTP struct {
-	URL    string
-	Method string
-	Data   map[string]string
-	Files  []*HTTPFile
+	URL    string            `json:"url"`
+	Method string            `json:"method"`
+	Data   map[string]string `json:"data,omitempty"`
+	Files  []*HTTPFile       `json:"files,omitempty"`
 }
 
 type HTTPFile struct {
-	Filename string
-	Path     string
+	Filename string `json:"filename"`
+	Path     string `json:"path"`
 }
 
 func (f *HTTPFile) Err() error {
