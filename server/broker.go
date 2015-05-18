@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -76,19 +77,24 @@ func (b *Broker) HandleWorkerConnect(r *kite.Request) (interface{}, error) {
 
 	workerId := args[0].MustString()
 	topicName := args[1].MustString()
+	maxJobSizeS := args[1].MustString()
+	maxJobSize, err := strconv.Atoi(maxJobSizeS)
+	if err != nil {
+		maxJobSize = 10
+	}
 
 	r.Client.ID = workerId
 
 	b.workersMutex.Lock()
 	defer b.workersMutex.Unlock()
 
-	w := NewConnectedWorker(workerId, topicName, r.Client)
+	w := NewConnectedWorker(workerId, topicName, maxJobSize, r.Client)
 	b.Workers[workerId] = w
 
 	topic := b.Topic(topicName)
 	topic.Dispatcher.AddWorker(w)
 
-	b.logger.Info("Worker %v of topic %v connected", workerId, topicName)
+	b.logger.Info("Topic#%v/Worker#%v connected (maxJobSize:%v)", workerId, topicName, maxJobSize)
 	return true, nil
 }
 
@@ -105,6 +111,8 @@ func (b *Broker) HandleWorkerJobDone(r *kite.Request) (interface{}, error) {
 	if err != nil {
 		b.logger.Error("Finish message messageId:%v err:%v", msgIdStr, err)
 	}
+
+	b.Workers[r.Client.ID].decrNumJob()
 
 	b.logger.Info("Finish message id:%v from worker:%v", msgIdStr, r.Client.ID)
 	return nil, nil

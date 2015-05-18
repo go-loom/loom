@@ -72,6 +72,7 @@ L:
 			d.logger.Info("Dispatched Workers:%v", len(workers))
 			for _, w := range workers {
 				ok := w.SendMessage(msg)
+
 				if !ok {
 					d.logger.Error("Sending message is failure id:%v", string(msg.ID[:]))
 					d.msgPushChan <- msg

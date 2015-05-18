@@ -53,6 +53,11 @@ func main() {
 					Name:  "topic,t",
 					Value: "",
 				},
+				cli.IntFlag{
+					Name:  "maxJobSize,m",
+					Value: 10,
+					Usage: "max job size per worker",
+				},
 			},
 		},
 	}
@@ -69,7 +74,8 @@ func ServerAction(c *cli.Context) {
 func WorkerAction(c *cli.Context) {
 	serverURL := c.String("serverurl")
 	topic := c.String("topic")
-	w := worker.New(serverURL, topic, VERSION)
+	maxJobSize := c.Int("maxJobSize")
+	w := worker.New(serverURL, topic, maxJobSize, VERSION)
 	shutdown(w.Close)
 	w.Run()
 }

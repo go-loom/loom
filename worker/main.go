@@ -8,13 +8,13 @@ import (
 
 var logger = log.NewWithSync("loom-worker")
 
-func New(serverURL, topic, version string) *Worker {
-	workerName := "loom-worker-" + topic
+func New(serverURL string, topic string, maxJobSize int, version string) *Worker {
+	workerName := "loom-worker#" + topic
 
 	k := kite.New(workerName, version)
 	k.Config.DisableAuthentication = true
 
-	w := NewWorker(serverURL, topic, k)
+	w := NewWorker(serverURL, topic, maxJobSize, k)
 	err := w.Init()
 	if err != nil {
 		logger.Error("Worker init err: %v", err)

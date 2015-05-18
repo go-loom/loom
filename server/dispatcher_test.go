@@ -13,7 +13,7 @@ func TestDispatcherRunning(t *testing.T) {
 
 	topicName := "test"
 
-	w := NewConnectedWorker("1", topicName, client)
+	w := NewConnectedWorker("1", topicName, 1, client)
 
 	dispatcher := NewDispatcher(topicName, nil)
 	dispatcher.AddWorker(w)
@@ -36,7 +36,7 @@ func TestDispatcherSendMessage(t *testing.T) {
 
 	topicName := "test"
 
-	w := NewConnectedWorker("1", topicName, client)
+	w := NewConnectedWorker("1", topicName, 1, client)
 
 	dispatcher := NewDispatcher(topicName, nil)
 	dispatcher.AddWorker(w)

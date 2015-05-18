@@ -12,26 +12,28 @@ import (
 )
 
 type Worker struct {
-	ID        string
-	Topic     string
-	ServerURL string
-	kite      *kite.Kite
-	Client    *kite.Client
-	jobs      map[string]*Job
-	jobsMutex sync.RWMutex
-	logger    log.Logger
-	ctx       context.Context
+	ID         string
+	Topic      string
+	ServerURL  string
+	maxJobSize int
+	kite       *kite.Kite
+	Client     *kite.Client
+	jobs       map[string]*Job
+	jobsMutex  sync.RWMutex
+	logger     log.Logger
+	ctx        context.Context
 }
 
-func NewWorker(serverURL, topic string, k *kite.Kite) *Worker {
+func NewWorker(serverURL, topic string, maxJobSize int, k *kite.Kite) *Worker {
 	w := &Worker{
-		ID:        k.Id,
-		Topic:     topic,
-		ServerURL: serverURL,
-		jobs:      make(map[string]*Job, 0),
-		kite:      k,
-		logger:    log.New("worker#" + topic),
-		ctx:       context.Background(), //TODO:
+		ID:         k.Id,
+		Topic:      topic,
+		ServerURL:  serverURL,
+		maxJobSize: maxJobSize,
+		jobs:       make(map[string]*Job, 0),
+		kite:       k,
+		logger:     log.New("worker#" + topic),
+		ctx:        context.Background(), //TODO:
 	}
 
 	return w
@@ -73,7 +75,7 @@ func (w *Worker) Close() error {
 }
 
 func (w *Worker) tellHelloToServer() error {
-	response, err := w.Client.Tell("loom.server:worker.connect", w.ID, w.Topic)
+	response, err := w.Client.Tell("loom.server:worker.connect", w.ID, w.Topic, w.maxJobSize)
 	if err != nil {
 		return err
 	}
