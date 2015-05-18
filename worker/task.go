@@ -47,13 +47,21 @@ func (tasks Tasks) JSON() (result []map[string]interface{}) {
 	return
 }
 
-type JobStartTask struct {
+type JobTask struct {
 	config.Task
+	state string
 }
 
-func (t *JobStartTask) TaskName() string {
+func NewJobTask(state string) *JobTask {
+	t := &JobTask{
+		state: state,
+	}
+	return t
+}
+
+func (t *JobTask) TaskName() string {
 	return "JOB"
 }
-func (t *JobStartTask) State() string {
-	return "START"
+func (t *JobTask) State() string {
+	return t.state
 }

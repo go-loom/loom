@@ -13,6 +13,7 @@ type Job struct {
 	cancelF                    context.CancelFunc
 	config                     *config.Job
 	Tasks                      Tasks
+	jobEndTasks                []*config.Task
 	changeTaskC                chan *TaskRunner
 	doneTaskC                  chan *TaskRunner
 	onTaskStateChangeHandelers []func(Task)
@@ -44,10 +45,25 @@ func (job *Job) addTasks() {
 }
 
 func (job *Job) Run() {
-	err := job.runTasks(&JobStartTask{})
+	task := NewJobTask("START")
+	matchTasks, jobEndTasks, err := taskRunFilter.Filter(task, job.config.Tasks)
 	if err != nil {
+		job.logger.Error("task when err:%v", err)
 		job.cancelF()
+		return
 	}
+
+	job.jobEndTasks = jobEndTasks
+
+	for _, t := range matchTasks {
+		tr := NewTaskRunner(job, t)
+		tr.Run()
+
+		if job.logger.IsDebug() {
+			job.logger.Debug("Current Task name:%v state:%v -> Run task: %v", task.TaskName(), task.State(), tr.TaskName())
+		}
+	}
+
 }
 
 func (job *Job) Done() <-chan struct{} {
@@ -76,11 +92,20 @@ L:
 			}
 			job.Tasks[tr.TaskName()] = tr
 
-			if job.isJobFinish() == true {
-				break L
+			if isFin, hasErr := job.isFinishTasks(); isFin == true {
+				if hasErr {
+					job.runTasks(NewJobTask(TASK_STATE_ERROR), job.jobEndTasks)
+				} else {
+					job.runTasks(NewJobTask(TASK_STATE_DONE), job.jobEndTasks)
+				}
+			} else {
+				job.runTasks(tr)
+
 			}
 
-			job.runTasks(tr)
+			if job.isFinishJob() == true {
+				break L
+			}
 
 		case tr := <-job.changeTaskC:
 			for _, h := range job.onTaskStateChangeHandelers {
@@ -96,8 +121,15 @@ L:
 	}
 }
 
-func (job *Job) runTasks(task Task) error {
-	matchTasks, notmatchTasks, err := taskRunFilter.Filter(task, job.config.Tasks)
+func (job *Job) runTasks(task Task, tasks ...[]*config.Task) error {
+	var _tasks []*config.Task
+	if len(tasks) > 0 {
+		_tasks = tasks[0]
+	} else {
+		_tasks = job.config.Tasks
+	}
+
+	matchTasks, notmatchTasks, err := taskRunFilter.Filter(task, _tasks)
 	if err != nil {
 		return err
 	}
@@ -106,7 +138,7 @@ func (job *Job) runTasks(task Task) error {
 		tr.Run()
 
 		if job.logger.IsDebug() {
-			job.logger.Debug("Current Task name:%v state:%v -> Next task: %v", task.TaskName(), task.State(), tr.TaskName())
+			job.logger.Debug("Current Task name:%v state:%v -> Run task: %v", task.TaskName(), task.State(), tr.TaskName())
 		}
 	}
 
@@ -126,18 +158,46 @@ func (job *Job) runTasks(task Task) error {
 	return nil
 }
 
-func (job *Job) isJobFinish() bool {
-	numDoneT := 0
+func (job *Job) isFinishTasks() (bool, bool) {
+	total := 0
+	hasErr := false
 	for _, t := range job.Tasks {
+		for _, et := range job.jobEndTasks {
+			if t.TaskName() == et.TaskName() {
+				break
+			}
+		}
+
 		if t.State() == TASK_STATE_DONE || t.State() == TASK_STATE_ERROR || t.State() == TASK_STATE_CANCEL {
-			numDoneT++
+			total++
+		}
+		if t.State() == TASK_STATE_ERROR {
+			hasErr = true
 		}
 	}
 	if job.logger.IsDebug() {
-		job.logger.Debug("isJobFinish numDoneT:%v tasks:%v", numDoneT, len(job.Tasks))
+		job.logger.Debug("isFinishTasks total:%v tasks:%v", total, len(job.Tasks))
 	}
 
-	if numDoneT == len(job.Tasks) {
+	if total == len(job.Tasks)-len(job.jobEndTasks) {
+		return true, hasErr
+	}
+
+	return false, hasErr
+}
+
+func (job *Job) isFinishJob() bool {
+	total := 0
+	for _, t := range job.Tasks {
+		if t.State() == TASK_STATE_DONE || t.State() == TASK_STATE_ERROR || t.State() == TASK_STATE_CANCEL {
+			total++
+		}
+	}
+	if job.logger.IsDebug() {
+		job.logger.Debug("isFinishJob total:%v tasks:%v", total, len(job.Tasks))
+	}
+
+	if total == len(job.Tasks) {
 		return true
 	}
 	return false

@@ -30,7 +30,7 @@ func NewWorker(serverURL, topic string, k *kite.Kite) *Worker {
 		ServerURL: serverURL,
 		jobs:      make(map[string]*Job, 0),
 		kite:      k,
-		logger:    log.New("worker-" + topic),
+		logger:    log.New("worker#" + topic),
 		ctx:       context.Background(), //TODO:
 	}
 

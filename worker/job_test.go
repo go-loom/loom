@@ -104,3 +104,32 @@ func TestJobTaskHasErrTask(t *testing.T) {
 	a.Equal(job.Tasks["task2"].State(), TASK_STATE_CANCEL)
 	a.Equal(job.Tasks["task3"].State(), TASK_STATE_DONE)
 }
+
+func TestJobTaskIfJobDone(t *testing.T) {
+	a := assert.Assert(t)
+
+	tasks := []*c.Task{
+		&c.Task{
+			Name: "task1",
+			Cmd:  "echo task1",
+			When: "JOB",
+		},
+		&c.Task{
+			Name: "task2",
+			Cmd:  "echo task2",
+			When: "task1==DONE",
+		},
+		&c.Task{
+			Name: "task3",
+			Cmd:  "echo task3",
+			When: "JOB==DONE",
+		},
+	}
+
+	job := newTestJobRun(tasks, "job")
+	a.Equal(len(job.Tasks), 3)
+	a.Equal(job.Tasks["task1"].State(), TASK_STATE_DONE)
+	a.Equal(job.Tasks["task2"].State(), TASK_STATE_DONE)
+	a.Equal(job.Tasks["task3"].State(), TASK_STATE_DONE)
+
+}
