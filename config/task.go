@@ -11,12 +11,12 @@ type Task struct {
 	HTTP    *HTTP  `json:"http,omitempty"`
 	When    string `json:"when,omitempty"`
 	Timeout string `json:"timeout,omitempty"`
-	Retry   *Retry `json:"retry,omitempty"`
+	Retry   Retry  `json:"retry,omitempty"`
 }
 
 type TaskDefault struct {
 	templateReader
-	Retry   *Retry            `json:"retry,omitempty"`
+	Retry   Retry             `json:"retry,omitempty"`
 	Timeout string            `json:"timeout,omitempty"`
 	Vars    map[string]string `json:"vars,omitempty"`
 }
