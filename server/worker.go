@@ -10,6 +10,7 @@ type Worker struct {
 	ID         string
 	TopicName  string
 	Client     *kite.Client
+	dispatcher *Dispatcher
 	maxJobSize int
 	numJob     int
 	working    bool
@@ -27,8 +28,14 @@ func NewConnectedWorker(id, topicName string, maxJobSize int, client *kite.Clien
 	return w
 }
 
+func (w *Worker) SetDispatcher(dispatcher *Dispatcher) {
+	w.dispatcher = dispatcher
+}
+
 func (w *Worker) SendMessage(msg *Message) bool {
+	logger.Info("Sent from worker")
 	resp, err := w.Client.Tell("loom.worker:message.pop", msg.JSON())
+	logger.Info("Sent from worker")
 	//TODO: Need better error handling
 	if err != nil {
 		return false
@@ -39,6 +46,7 @@ func (w *Worker) SendMessage(msg *Message) bool {
 		return false
 	}
 
+	logger.Info("Sent from worker")
 	return ok
 }
 
@@ -53,14 +61,22 @@ func (w *Worker) Working() bool {
 
 func (w *Worker) SetWorking(working bool) {
 	w.wMutex.Lock()
-	defer w.wMutex.Unlock()
 	w.working = working
+	w.wMutex.Unlock()
+
+	if w.dispatcher != nil {
+		w.dispatcher.NotifyWorkerState()
+	}
 }
 
 func (w *Worker) SetNumJob(numJob int) {
 	w.wMutex.Lock()
-	defer w.wMutex.Unlock()
 	w.numJob = numJob
+	w.wMutex.Unlock()
+
+	if w.dispatcher != nil {
+		w.dispatcher.NotifyWorkerState()
+	}
 }
 
 func (w *Worker) isNotOverMaxJobSize() bool {

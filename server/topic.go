@@ -70,7 +70,7 @@ func (t *Topic) FinishMessage(id MessageID) error {
 		return err
 	}
 
-	t.logger.Info("Finished message id:%v", msg.ID)
+	t.logger.Info("Finished message id:%v", string(msg.ID[:]))
 	return nil
 }
 
@@ -131,10 +131,10 @@ func (t *Topic) pop() (msg *Message) {
 func (t *Topic) msgPopDispatch() {
 	for {
 		msg := t.pop()
-		if t.logger.IsDebug() {
-			t.logger.Debug("From queue msg pop id:%v", string(msg.ID[:]))
-		}
+		t.logger.Info("Pop job from queue id:%v", string(msg.ID[:]))
 		t.Dispatcher.msgPopChan <- msg
+
+		t.logger.Info("E:Pop job from queue id:%v", string(msg.ID[:]))
 	}
 }
 

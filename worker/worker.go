@@ -100,7 +100,7 @@ func (w *Worker) tellWorkerInfo() {
 		w.logger.Error("tellWorkerInfo err:%v", err)
 	}
 
-	w.logger.Info("Running job:%v", numJob)
+	w.logger.Info("Running job:%v (tell worker info to server)", numJob)
 }
 
 func (w *Worker) tellJobTaskStateChange(job *Job, tasks Tasks) error {
@@ -148,13 +148,7 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 		return false, err
 	}
 
-	if w.logger.IsDebug() {
-		w.logger.Debug("message id: %v value: %v", msg["id"], jobConfig)
-	}
-
 	job := NewJob(w.ctx, msg["id"].MustString(), &jobConfig)
-	w.tellWorkerInfo()
-
 	job.OnTaskStateChange(func(task Task) {
 		tasks := make(Tasks)
 
@@ -189,9 +183,9 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 	w.jobs[job.ID] = job
 	w.jobsMutex.Unlock()
 
-	if w.logger.IsDebug() {
-		w.logger.Debug("Pop message id: %v job: %v", job.ID, job)
-	}
+	w.tellWorkerInfo()
+
+	w.logger.Info("Recv job id:%v", job.ID)
 
 	return true, nil
 }

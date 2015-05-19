@@ -139,8 +139,8 @@ func (b *Broker) HandleWorkerInfo(r *kite.Request) (interface{}, error) {
 	w := b.getWorker(workerId)
 	w.SetNumJob(numJob)
 
+	b.logger.Info("Received worker info worker:%v jobs:%v", workerId, numJob)
 	return nil, nil
-
 }
 
 func (b *Broker) WorkerDisconnect(c *kite.Client) {

@@ -295,6 +295,8 @@ func (bs *BoltStore) SaveTasks(id MessageID, workerId string, tasks map[string]i
 		}
 
 		var buf bytes.Buffer
+
+		gob.Register(map[string]interface{}{})
 		enc := gob.NewEncoder(&buf)
 		enc.Encode(data)
 
@@ -316,6 +318,8 @@ func (bs *BoltStore) LoadTasks(id MessageID) (tasks map[string]map[string]interf
 
 		var result *map[string]map[string]interface{}
 		buf := bytes.NewBuffer(v)
+
+		gob.Register(map[string]interface{}{})
 		dec := gob.NewDecoder(buf)
 		err := dec.Decode(&result)
 		if err != nil {

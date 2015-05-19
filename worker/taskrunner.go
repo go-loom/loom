@@ -62,7 +62,7 @@ func NewTaskRunner(job *Job, task *config.Task, templateCtx map[string]interface
 		eventC:      make(chan string),
 		stateC:      make(chan string),
 		templateCtx: templateCtx,
-		logger:      log.New("taskr#" + task.TaskName()),
+		logger:      log.New("taskr/" + task.TaskName() + "#" + job.ID),
 	}
 	tr_fsm := fsm.NewFSM(
 		TASK_STATE_INIT,
