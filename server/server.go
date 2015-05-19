@@ -8,19 +8,28 @@ import (
 )
 
 var logger = log.NewWithSync("loom-server")
+var broker *Broker //Use for http handlers
 
-var broker *Broker
+type Server struct {
+	broker *Broker
+	kite   *kite.Kite
+}
 
-func Main(port int, dbpath string, version string) {
-
+func NewServer(port int, dbpath string, version string) *Server {
 	k := kite.New("loom-server", version)
 	k.Config.DisableAuthentication = true
 
-	broker = NewBroker(dbpath, k)
-	err := broker.Init()
+	b := NewBroker(dbpath, k)
+	broker = b //TODO:
+	err := b.Init()
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
+	}
+
+	s := &Server{
+		broker: b,
+		kite:   k,
 	}
 
 	restRouter := httprouter.New()
@@ -29,7 +38,16 @@ func Main(port int, dbpath string, version string) {
 	restRouter.DELETE("/v1/queues/:queue/:id", DeleteHandler)
 
 	k.HandleHTTP("/v1/queues/", restRouter)
-
 	k.Config.Port = port
-	k.Run()
+
+	return s
+}
+
+func (s *Server) Run() {
+	s.kite.Run()
+}
+
+func (s *Server) Close() error {
+	s.kite.Close()
+	return nil
 }

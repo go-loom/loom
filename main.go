@@ -68,7 +68,9 @@ func main() {
 func ServerAction(c *cli.Context) {
 	dbpath := c.String("dbpath")
 	port := c.Int("port")
-	server.Main(port, dbpath, VERSION)
+	s := server.NewServer(port, dbpath, VERSION)
+	shutdown(s.Close)
+	s.Run()
 }
 
 func WorkerAction(c *cli.Context) {
