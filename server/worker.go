@@ -33,9 +33,7 @@ func (w *Worker) SetDispatcher(dispatcher *Dispatcher) {
 }
 
 func (w *Worker) SendMessage(msg *Message) bool {
-	logger.Info("Sent from worker")
 	resp, err := w.Client.Tell("loom.worker:message.pop", msg.JSON())
-	logger.Info("Sent from worker")
 	//TODO: Need better error handling
 	if err != nil {
 		return false
@@ -46,7 +44,7 @@ func (w *Worker) SendMessage(msg *Message) bool {
 		return false
 	}
 
-	logger.Info("Sent from worker")
+	logger.Debug("Sent from worker")
 	return ok
 }
 

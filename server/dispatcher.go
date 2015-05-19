@@ -57,8 +57,6 @@ func (d *Dispatcher) RemoveWorker(w *Worker) {
 }
 
 func (d *Dispatcher) NotifyWorkerState() {
-	d.logger.Info("notify worker state")
-
 	d.workersMutex.RLock()
 	defer d.workersMutex.RUnlock()
 
@@ -68,16 +66,14 @@ func (d *Dispatcher) NotifyWorkerState() {
 			num++
 		}
 	}
-	d.logger.Info("notify num:%v running:%v", num, d.running)
+	d.logger.Info("Notify num:%v running:%v", num, d.running)
 
 	if num == 0 && d.running == true {
 		d.quitChan <- struct{}{}
 		d.running = false
-		d.logger.Info("Stop")
-	} else if d.running == false {
+	} else if num > 0 && d.running == false {
 		go d.dispatching()
 		d.running = true
-		d.logger.Info("Start")
 	}
 }
 
@@ -102,9 +98,7 @@ L:
 			}
 			d.logger.Info("Dispatched Workers:%v", len(workers))
 			for _, w := range workers {
-				d.logger.Info("S:Sent message %v", string(msg.ID[:]))
 				ok := w.SendMessage(msg)
-				d.logger.Info("E:Sent message %v", string(msg.ID[:]))
 
 				if !ok {
 					d.logger.Error("Sending message is failure id:%v", string(msg.ID[:]))
@@ -121,7 +115,7 @@ L:
 					d.logger.Info("Pop message id:%v", string(msg.ID[:]))
 				}
 			}
-			d.logger.Info("E: pop msg")
+			d.logger.Info("E: pop msg id:%v", string(msg.ID[:]))
 		}
 	}
 

@@ -183,9 +183,11 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 	w.jobs[job.ID] = job
 	w.jobsMutex.Unlock()
 
-	w.tellWorkerInfo()
+	go func() {
+		w.tellWorkerInfo()
+	}()
 
-	w.logger.Info("Recv job id:%v", job.ID)
+	w.logger.Info("Recieved job id:%v", job.ID)
 
 	return true, nil
 }

@@ -131,10 +131,9 @@ func (t *Topic) pop() (msg *Message) {
 func (t *Topic) msgPopDispatch() {
 	for {
 		msg := t.pop()
-		t.logger.Info("Pop job from queue id:%v", string(msg.ID[:]))
+		t.logger.Debug("S:Pop job from queue id:%v", string(msg.ID[:]))
 		t.Dispatcher.msgPopChan <- msg
-
-		t.logger.Info("E:Pop job from queue id:%v", string(msg.ID[:]))
+		t.logger.Debug("E:Pop job from queue id:%v", string(msg.ID[:]))
 	}
 }
 
