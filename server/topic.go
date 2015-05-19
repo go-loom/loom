@@ -2,7 +2,6 @@ package server
 
 import (
 	"gopkg.in/loom.v1/log"
-	"sync"
 	"time"
 )
 
@@ -13,7 +12,6 @@ type Topic struct {
 	PendingTimeout       time.Duration
 	pendingCheckInterval time.Duration
 	waitingCh            chan interface{}
-	mutex                sync.Mutex
 	store                Store
 	logger               log.Logger
 }
@@ -23,7 +21,7 @@ func NewTopic(name string, pendingTimeout time.Duration, store Store) *Topic {
 
 	topic := &Topic{
 		Name:                 name,
-		Queue:                NewLLQueue(),
+		Queue:                NewLQueue(),
 		Dispatcher:           dispatcher,
 		PendingTimeout:       pendingTimeout,
 		pendingCheckInterval: 10 * time.Second,
@@ -111,19 +109,11 @@ func (t *Topic) push(msg *Message) {
 	select {
 	case t.waitingCh <- msg:
 	default:
-		t.mutex.Lock()
-		defer t.mutex.Unlock()
-		err := t.Queue.Push(msg)
-		if err != nil {
-			//TODO:
-			t.logger.Error("push err: %v", err)
-		}
+		t.Queue.Push(msg)
 	}
 }
 
 func (t *Topic) pop() (msg *Message) {
-	t.mutex.Lock()
-	defer t.mutex.Unlock()
 
 	if item := t.Queue.Pop(); item != nil {
 		msg = item.(*Message)

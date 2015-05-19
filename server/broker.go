@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -67,6 +66,7 @@ func (b *Broker) Init() error {
 	b.kite.HandleFunc("loom.server:worker.job.tasks.state", b.HandleWorkerJobTasksState)
 	b.kite.HandleFunc("loom.server:worker.job.done", b.HandleWorkerJobDone)
 	b.kite.HandleFunc("loom.server:worker.shutdown", b.HandleWorkerShutdown)
+	b.kite.HandleFunc("loom.server:worker.info", b.HandleWorkerInfo)
 	b.kite.OnDisconnect(b.WorkerDisconnect)
 
 	return nil
@@ -77,12 +77,7 @@ func (b *Broker) HandleWorkerConnect(r *kite.Request) (interface{}, error) {
 
 	workerId := args[0].MustString()
 	topicName := args[1].MustString()
-	maxJobSizeS := args[1].MustString()
-	maxJobSize, err := strconv.Atoi(maxJobSizeS)
-	if err != nil {
-		maxJobSize = 10
-	}
-
+	maxJobSize := int(args[2].MustFloat64())
 	r.Client.ID = workerId
 
 	b.workersMutex.Lock()
@@ -112,15 +107,13 @@ func (b *Broker) HandleWorkerJobDone(r *kite.Request) (interface{}, error) {
 		b.logger.Error("Finish message messageId:%v err:%v", msgIdStr, err)
 	}
 
-	b.Workers[r.Client.ID].decrNumJob()
-
 	b.logger.Info("Finish message id:%v from worker:%v", msgIdStr, r.Client.ID)
 	return nil, nil
 }
 
 func (b *Broker) HandleWorkerJobTasksState(r *kite.Request) (interface{}, error) {
 	args := r.Args.MustSlice()
-	var tasks *[]map[string]interface{}
+	var tasks *map[string]interface{}
 	args[0].MustUnmarshal(&tasks)
 	msgIdStr := args[1].MustString()
 	topicName := args[2].MustString()
@@ -136,6 +129,18 @@ func (b *Broker) HandleWorkerJobTasksState(r *kite.Request) (interface{}, error)
 
 	b.logger.Info("Received job:%v from worker:%v", msgIdStr, r.Client.ID)
 	return nil, nil
+}
+
+func (b *Broker) HandleWorkerInfo(r *kite.Request) (interface{}, error) {
+	args := r.Args.MustSlice()
+	numJob := int(args[0].MustFloat64())
+	workerId := r.Client.ID
+
+	w := b.getWorker(workerId)
+	w.SetNumJob(numJob)
+
+	return nil, nil
+
 }
 
 func (b *Broker) WorkerDisconnect(c *kite.Client) {
@@ -154,15 +159,22 @@ func (b *Broker) WorkerDisconnect(c *kite.Client) {
 }
 
 func (b *Broker) HandleWorkerShutdown(r *kite.Request) (interface{}, error) {
-	b.workersMutex.RLock()
-	defer b.workersMutex.RUnlock()
-
-	//The worker can't be working anymore.
-	if w, ok := b.Workers[r.Client.ID]; ok {
+	w := b.getWorker(r.Client.ID)
+	if w != nil {
 		w.SetWorking(false)
 	}
 	b.logger.Info("Worker:%v is shutdowning.", r.Client.ID)
 	return nil, nil
+}
+
+func (b *Broker) getWorker(workerId string) *Worker {
+	b.workersMutex.RLock()
+	defer b.workersMutex.RUnlock()
+
+	if w, ok := b.Workers[workerId]; ok {
+		return w
+	}
+	return nil
 }
 
 func (b *Broker) Topic(name string) *Topic {

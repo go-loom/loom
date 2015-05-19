@@ -283,17 +283,14 @@ func (bs *BoltStore) RemovePendingMsgID(ts *time.Time) error {
 }
 */
 
-//	SaveTasks(id MessageID, workerId string, tasks []map[string]interface{}) error
-//	LoadTasks(id MessageID) (map[string][]map[string]interface{}, error)
-
-func (bs *BoltStore) SaveTasks(id MessageID, workerId string, tasks []map[string]interface{}) error {
+func (bs *BoltStore) SaveTasks(id MessageID, workerId string, tasks map[string]interface{}) error {
 	err := bs.db.Update(func(tx *bolt.Tx) error {
 		b, err := tx.CreateBucketIfNotExists(bucket_tasks)
 		if err != nil {
 			return err
 		}
 
-		data := map[string][]map[string]interface{}{
+		data := map[string]map[string]interface{}{
 			workerId: tasks,
 		}
 
@@ -307,7 +304,7 @@ func (bs *BoltStore) SaveTasks(id MessageID, workerId string, tasks []map[string
 	return err
 }
 
-func (bs *BoltStore) LoadTasks(id MessageID) (tasks map[string][]map[string]interface{}, err error) {
+func (bs *BoltStore) LoadTasks(id MessageID) (tasks map[string]map[string]interface{}, err error) {
 
 	err = bs.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(bucket_tasks)
@@ -317,7 +314,7 @@ func (bs *BoltStore) LoadTasks(id MessageID) (tasks map[string][]map[string]inte
 			return nil
 		}
 
-		var result *map[string][]map[string]interface{}
+		var result *map[string]map[string]interface{}
 		buf := bytes.NewBuffer(v)
 		dec := gob.NewDecoder(buf)
 		err := dec.Decode(&result)

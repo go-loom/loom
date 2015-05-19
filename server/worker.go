@@ -39,10 +39,6 @@ func (w *Worker) SendMessage(msg *Message) bool {
 		return false
 	}
 
-	if ok {
-		w.incrNumJob()
-	}
-
 	return ok
 }
 
@@ -61,22 +57,14 @@ func (w *Worker) SetWorking(working bool) {
 	w.working = working
 }
 
-func (w *Worker) incrNumJob() {
+func (w *Worker) SetNumJob(numJob int) {
 	w.wMutex.Lock()
 	defer w.wMutex.Unlock()
-
-	w.numJob++
-}
-
-func (w *Worker) decrNumJob() {
-	w.wMutex.Lock()
-	defer w.wMutex.Unlock()
-
-	w.numJob--
+	w.numJob = numJob
 }
 
 func (w *Worker) isNotOverMaxJobSize() bool {
-	if w.numJob >= w.maxJobSize {
+	if w.numJob < w.maxJobSize {
 		return true
 	}
 	return false

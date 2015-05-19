@@ -88,6 +88,21 @@ func (w *Worker) tellHelloToServer() error {
 	return nil
 }
 
+func (w *Worker) tellWorkerInfo() {
+	numJob := 0
+
+	w.jobsMutex.RLock()
+	numJob = len(w.jobs)
+	w.jobsMutex.RUnlock()
+
+	_, err := w.Client.Tell("loom.server:worker.info", numJob)
+	if err != nil {
+		w.logger.Error("tellWorkerInfo err:%v", err)
+	}
+
+	w.logger.Info("Running job:%v", numJob)
+}
+
 func (w *Worker) tellJobTaskStateChange(job *Job, tasks Tasks) error {
 	_, err := w.Client.Tell("loom.server:worker.job.tasks.state",
 		tasks.JSON(), job.ID, w.Topic)
@@ -138,6 +153,7 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 	}
 
 	job := NewJob(w.ctx, msg["id"].MustString(), &jobConfig)
+	w.tellWorkerInfo()
 
 	job.OnTaskStateChange(func(task Task) {
 		tasks := make(Tasks)
@@ -163,6 +179,8 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 		w.jobsMutex.Lock()
 		delete(w.jobs, job.ID)
 		w.jobsMutex.Unlock()
+
+		w.tellWorkerInfo()
 
 	}()
 	job.Run() //async.

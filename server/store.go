@@ -23,8 +23,8 @@ type Store interface {
 		UpdatePendingMsgIdsAtTime(ts time.Time, msgIds []MessageID) error
 	*/
 
-	SaveTasks(id MessageID, workerId string, tasks []map[string]interface{}) error
-	LoadTasks(id MessageID) (map[string][]map[string]interface{}, error)
+	SaveTasks(id MessageID, workerId string, tasks map[string]interface{}) error
+	LoadTasks(id MessageID) (map[string]map[string]interface{}, error)
 
 	Open() error
 	Close() error
