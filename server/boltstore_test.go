@@ -2,13 +2,15 @@ package server
 
 import (
 	"github.com/koding/kite"
+	"golang.org/x/net/context"
 	"os"
 	"testing"
 )
 
 func TestBoltStorePut(t *testing.T) {
+	ctx := context.Background()
 	k := kite.New("test", "0.0.1")
-	b := NewBroker("/tmp/test", k)
+	b := NewBroker(ctx, "/tmp/test", k)
 	b.Init()
 
 	s, err := NewTopicStore("bolt", b.DBPath, "test")

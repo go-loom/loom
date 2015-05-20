@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/koding/kite"
+	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/log"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 )
 
 type Broker struct {
+	ctx          context.Context
 	ID           int64
 	DBPath       string
 	Topics       map[string]*Topic
@@ -20,21 +22,28 @@ type Broker struct {
 	workersMutex sync.RWMutex
 	kite         *kite.Kite
 	idChan       chan MessageID
+	topicQuitC   chan struct{}
+	quitC        chan struct{}
+	wg           sync.WaitGroup
 	logger       log.Logger
 }
 
-func NewBroker(dbpath string, k *kite.Kite) *Broker {
+func NewBroker(ctx context.Context, dbpath string, k *kite.Kite) *Broker {
 
 	b := &Broker{
-		ID:      1,
-		DBPath:  dbpath,
-		Topics:  make(map[string]*Topic),
-		Workers: make(map[string]*Worker),
-		idChan:  make(chan MessageID, 4096), // Buffer
-		kite:    k,
-		logger:  log.New("Broker"),
+		ctx:        ctx,
+		ID:         1,
+		DBPath:     dbpath,
+		Topics:     make(map[string]*Topic),
+		Workers:    make(map[string]*Worker),
+		idChan:     make(chan MessageID, 4096), // Buffer
+		topicQuitC: make(chan struct{}),
+		quitC:      make(chan struct{}),
+		kite:       k,
+		logger:     log.New("Broker"),
 	}
 
+	go b.recvTopicQuit()
 	return b
 }
 
@@ -70,6 +79,12 @@ func (b *Broker) Init() error {
 	b.kite.OnDisconnect(b.WorkerDisconnect)
 
 	return nil
+}
+
+func (b *Broker) Done() {
+	b.wg.Wait()
+	b.logger.Info("Closing broker..")
+	return
 }
 
 func (b *Broker) HandleWorkerConnect(r *kite.Request) (interface{}, error) {
@@ -185,17 +200,21 @@ func (b *Broker) Topic(name string) *Topic {
 		return t
 	}
 
+	topicCtx := context.WithValue(b.ctx, "quitC", b.topicQuitC)
+
 	store, _ := NewTopicStore("bolt", b.DBPath, name)
 	store.Open()
 
 	pendingTimeout := 10 * time.Second
-	t := NewTopic(name, pendingTimeout, store)
+	t := NewTopic(topicCtx, name, pendingTimeout, store)
 	err := t.Init()
 	if err != nil {
 		b.logger.Error("Load topic %v db err: %v", name, err)
 	}
 
 	b.Topics[name] = t
+
+	b.wg.Add(1) //Add topic wait group count
 
 	return t
 }
@@ -229,6 +248,12 @@ func (b *Broker) NewID() MessageID {
 	return <-b.idChan
 }
 
+func (b *Broker) recvTopicQuit() {
+	for _ = range b.topicQuitC {
+		b.wg.Done()
+	}
+}
+
 func (b *Broker) idPump() {
 	factory := &guidFactory{}
 	lastError := time.Now()
@@ -253,6 +278,10 @@ func (b *Broker) idPump() {
 		select {
 		case b.idChan <- id.Hex():
 			//TODO: exitChan?
+		case <-b.ctx.Done():
+			break
 		}
 	}
+
+	b.logger.Info("End idPump")
 }

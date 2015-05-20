@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/koding/kite"
+	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/log"
 	"os"
 )
@@ -11,15 +12,18 @@ var logger = log.NewWithSync("loom-server")
 var broker *Broker //Use for http handlers
 
 type Server struct {
-	broker *Broker
-	kite   *kite.Kite
+	broker  *Broker
+	kite    *kite.Kite
+	ctx     context.Context
+	cancelF context.CancelFunc
 }
 
 func NewServer(port int, dbpath string, version string) *Server {
+	ctx, cancelF := context.WithCancel(context.Background())
 	k := kite.New("loom-server", version)
 	k.Config.DisableAuthentication = true
 
-	b := NewBroker(dbpath, k)
+	b := NewBroker(ctx, dbpath, k)
 	broker = b //TODO:
 	err := b.Init()
 	if err != nil {
@@ -28,8 +32,10 @@ func NewServer(port int, dbpath string, version string) *Server {
 	}
 
 	s := &Server{
-		broker: b,
-		kite:   k,
+		broker:  b,
+		kite:    k,
+		ctx:     ctx,
+		cancelF: cancelF,
 	}
 
 	restRouter := httprouter.New()
@@ -48,6 +54,8 @@ func (s *Server) Run() {
 }
 
 func (s *Server) Close() error {
+	s.cancelF()
+	s.broker.Done()
 	s.kite.Close()
 	return nil
 }

@@ -1,11 +1,13 @@
 package server
 
 import (
+	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/log"
 	"time"
 )
 
 type Topic struct {
+	ctx                  context.Context
 	Name                 string
 	Queue                Queue
 	Dispatcher           *Dispatcher
@@ -14,12 +16,14 @@ type Topic struct {
 	waitingCh            chan interface{}
 	store                Store
 	logger               log.Logger
+	quitC                chan struct{}
 }
 
-func NewTopic(name string, pendingTimeout time.Duration, store Store) *Topic {
+func NewTopic(ctx context.Context, name string, pendingTimeout time.Duration, store Store) *Topic {
 	dispatcher := NewDispatcher(name, store)
 
 	topic := &Topic{
+		ctx:                  ctx,
 		Name:                 name,
 		Queue:                NewLQueue(),
 		Dispatcher:           dispatcher,
@@ -28,7 +32,10 @@ func NewTopic(name string, pendingTimeout time.Duration, store Store) *Topic {
 		waitingCh:            make(chan interface{}),
 		store:                store,
 		logger:               log.New("Topic:" + name),
+		quitC:                ctx.Value("quitC").(chan struct{}),
 	}
+
+	go topic.waitDone()
 
 	return topic
 }
@@ -119,7 +126,10 @@ func (t *Topic) pop() (msg *Message) {
 		msg = item.(*Message)
 		msg.State = MSG_DEQUEUED
 	} else {
-		item := <-t.waitingCh
+		item, ok := <-t.waitingCh
+		if !ok {
+			return nil
+		}
 		msg = item.(*Message)
 		msg.State = MSG_DEQUEUED
 	}
@@ -131,6 +141,9 @@ func (t *Topic) pop() (msg *Message) {
 func (t *Topic) msgPopDispatch() {
 	for {
 		msg := t.pop()
+		if msg == nil {
+			break
+		}
 		t.logger.Debug("S:Pop job from queue id:%v", string(msg.ID[:]))
 		t.Dispatcher.msgPopChan <- msg
 		t.logger.Debug("E:Pop job from queue id:%v", string(msg.ID[:]))
@@ -148,6 +161,14 @@ func (t *Topic) msgPushDispatch() {
 			}
 		}
 	}
+}
+
+func (t *Topic) waitDone() {
+	<-t.ctx.Done()
+	close(t.waitingCh)
+	t.quitC <- struct{}{}
+
+	t.logger.Info("Closing topic")
 }
 
 /*

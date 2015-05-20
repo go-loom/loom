@@ -1,6 +1,7 @@
 package server
 
 import (
+	"golang.org/x/net/context"
 	"testing"
 	"time"
 )
@@ -11,7 +12,10 @@ func TestTopicSimple(t *testing.T) {
 	store.Open()
 	defer store.Close()
 
-	topic := NewTopic("simple", 1*time.Second, store)
+	quitC := make(chan struct{})
+	ctx := context.WithValue(context.Background(), "quitC", quitC)
+
+	topic := NewTopic(ctx, "simple", 1*time.Second, store)
 	var id MessageID
 	m := NewMessage(id, []byte{'1'})
 	topic.PushMessage(m)
@@ -35,7 +39,8 @@ func BenchmarkTopicPush(b *testing.B) {
 	store.Open()
 	defer store.Close()
 
-	topic := NewTopic("simple", 1*time.Second, store)
+	ctx := context.Background()
+	topic := NewTopic(ctx, "simple", 1*time.Second, store)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		var id MessageID
