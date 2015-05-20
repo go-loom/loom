@@ -180,6 +180,22 @@ func (bs *BoltStore) RemovePendingMsgsInWorker(workerID string) error {
 	return err
 }
 
+func (bs *BoltStore) RemovePendingMsg(workerID string, id MessageID) error {
+	err := bs.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(bucket_pending_msgs)
+		key := []byte("worker:" + workerID)
+		workerB := b.Bucket(key)
+		if workerB == nil {
+			return nil
+		}
+
+		err := workerB.Delete(id[:])
+		return err
+	})
+
+	return err
+}
+
 func (bs *BoltStore) GetPendingMsgsInWorker(workerID string) (msgs []*PendingMessage, err error) {
 	key := []byte("worker:" + workerID)
 

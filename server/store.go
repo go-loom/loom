@@ -16,6 +16,7 @@ type Store interface {
 
 	AddPendingMsg(msg *PendingMessage) error
 	RemovePendingMsgsInWorker(workerID string) error
+	RemovePendingMsg(workerID string, id MessageID) error
 	GetPendingMsgsInWorker(workerID string) ([]*PendingMessage, error)
 
 	/*

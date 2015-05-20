@@ -122,6 +122,11 @@ func (b *Broker) HandleWorkerJobDone(r *kite.Request) (interface{}, error) {
 		b.logger.Error("Finish message messageId:%v err:%v", msgIdStr, err)
 	}
 
+	err = topic.store.RemovePendingMsg(r.Client.ID, msgId)
+	if err != nil {
+		b.logger.Error("Remove pending msg worker:%v messageId:%v err:%v", r.Client.ID, msgIdStr, err)
+	}
+
 	b.logger.Info("Finish message id:%v from worker:%v", msgIdStr, r.Client.ID)
 	return nil, nil
 }
