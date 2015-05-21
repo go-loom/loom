@@ -5,7 +5,7 @@ import (
 )
 
 func TestQueueSimple(t *testing.T) {
-	q := NewLLQueue()
+	q := NewLQueue()
 
 	q.Push(1)
 	if l := q.Len(); l != 1 {
@@ -27,7 +27,7 @@ func TestQueueSimple(t *testing.T) {
 }
 
 func BenchmarkQueuePush(b *testing.B) {
-	q := NewLLQueue()
+	q := NewLQueue()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -38,7 +38,7 @@ func BenchmarkQueuePush(b *testing.B) {
 }
 
 func BenchmarkQueuePushAndPop(b *testing.B) {
-	q := NewLLQueue()
+	q := NewLQueue()
 
 	b.ReportAllocs()
 	b.ResetTimer()

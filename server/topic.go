@@ -7,35 +7,40 @@ import (
 )
 
 type Topic struct {
-	ctx                  context.Context
-	Name                 string
-	Queue                Queue
-	Dispatcher           *Dispatcher
-	PendingTimeout       time.Duration
-	pendingCheckInterval time.Duration
-	waitingCh            chan interface{}
-	store                Store
-	logger               log.Logger
-	quitC                chan struct{}
+	ctx                context.Context
+	Name               string
+	Queue              Queue
+	Dispatcher         *Dispatcher
+	retryCheckDuration time.Duration
+	waitingCh          chan interface{}
+	store              Store
+	msgBucket          MessageBucket
+	pendingMsgBucket   MessageBucket
+	logger             log.Logger
+	quitC              chan struct{}
+	retryCheckQuitC    chan struct{}
 }
 
-func NewTopic(ctx context.Context, name string, pendingTimeout time.Duration, store Store) *Topic {
+func NewTopic(ctx context.Context, name string, retryCheckDuration time.Duration, store Store) *Topic {
 	dispatcher := NewDispatcher(name, store)
 
 	topic := &Topic{
-		ctx:                  ctx,
-		Name:                 name,
-		Queue:                NewLQueue(),
-		Dispatcher:           dispatcher,
-		PendingTimeout:       pendingTimeout,
-		pendingCheckInterval: 10 * time.Second,
-		waitingCh:            make(chan interface{}),
-		store:                store,
-		logger:               log.New("Topic:" + name),
-		quitC:                ctx.Value("quitC").(chan struct{}),
+		ctx:                ctx,
+		Name:               name,
+		Queue:              NewLQueue(),
+		Dispatcher:         dispatcher,
+		retryCheckDuration: retryCheckDuration,
+		waitingCh:          make(chan interface{}),
+		store:              store,
+		msgBucket:          store.MessageBucket(MessageBucketName),
+		pendingMsgBucket:   store.MessageBucket(MessagePendingBucketName),
+		logger:             log.New("Topic:" + name),
+		quitC:              ctx.Value("quitC").(chan struct{}),
+		retryCheckQuitC:    make(chan struct{}),
 	}
 
 	go topic.waitDone()
+	go topic.retryChecking()
 
 	return topic
 }
@@ -43,8 +48,8 @@ func NewTopic(ctx context.Context, name string, pendingTimeout time.Duration, st
 func (t *Topic) Init() error {
 
 	//First time, Messages go from Disk to Queue.
-	err := t.store.WalkMessage(func(m *Message) error {
-		if m.State == MSG_ENQUEUED {
+	err := t.msgBucket.Walk(func(m *Message) error {
+		if m.State == MSG_PENDING {
 			t.push(m)
 		}
 		return nil
@@ -57,57 +62,59 @@ func (t *Topic) Init() error {
 }
 
 func (t *Topic) PushMessage(msg *Message) {
-	msg.State = MSG_ENQUEUED
-	t.store.PutMessage(msg)
+	msg.State = MSG_PENDING
+	t.msgBucket.Put(msg)
+	t.pendingMsgBucket.Put(msg)
 	t.push(msg)
 
 	t.logger.Info("Pushed message id:%s", string(msg.ID[:]))
 }
 
 func (t *Topic) FinishMessage(id MessageID) error {
-	msg, err := t.store.GetMessage(id)
+	msg, err := t.msgBucket.Get(id)
 	if err != nil {
 		return err
 	}
 
 	msg.State = MSG_FINISHED
-
-	err = t.store.PutMessage(msg)
+	err = t.msgBucket.Put(msg)
 	if err != nil {
 		return err
 	}
 
-	t.logger.Info("Finished message id:%v", string(msg.ID[:]))
+	err = t.pendingMsgBucket.Del(msg.ID)
+	if err != nil {
+		return err
+	}
+
+	t.logger.Info("Finished message id:%v", string(msg.ID.Bytes()))
 	return nil
 }
 
 func (t *Topic) PushPendingMsgsInWorker(workerId string) {
-	pms, err := t.store.GetPendingMsgsInWorker(workerId)
-	if err != nil {
-		t.logger.Error("PushPendingMsgsInWorker.Get err: %v", err)
-		return
-	}
+	pmb := t.store.MessageBucket(WorkerPerMessageBucketNamePrefix + workerId)
 
 	num := 0
-	for _, pm := range pms {
-		m, err := t.store.GetMessage(pm.MessageID)
+	pmb.Walk(func(pm *Message) error {
+		m, err := t.msgBucket.Get(pm.ID)
 		if err != nil {
-			t.logger.Error("PushPendingMsgsInWorker.GetMessage err: %v", err)
-			continue
+			return err
+		}
+		m.State = MSG_PENDING
+		err = t.msgBucket.Put(m)
+		if err != nil {
+			t.logger.Error("Error message %v requeue", string(m.ID[:]))
 		}
 
-		if m.State == MSG_DEQUEUED {
-			t.PushMessage(m)
-			num++
-			t.logger.Info("Message %v is re-pushed to queue", string(m.ID[:]))
-		}
-	}
+		t.logger.Info("Message %v is re-pushed to queue", string(m.ID[:]))
+		num++
+		return err
+	})
 
-	err = t.store.RemovePendingMsgsInWorker(workerId)
+	err := pmb.DelBucket()
 	if err != nil {
-		t.logger.Error("PushPendingMsgsInWorker.Remove err:%v", err)
+		t.logger.Error(" PushPendingMsgsInWorker Remove err:%v", err)
 	}
-
 	t.logger.Info("Pushed pending msgs:%v", num)
 	return
 }
@@ -124,14 +131,12 @@ func (t *Topic) pop() (msg *Message) {
 
 	if item := t.Queue.Pop(); item != nil {
 		msg = item.(*Message)
-		msg.State = MSG_DEQUEUED
 	} else {
 		item, ok := <-t.waitingCh
 		if !ok {
 			return nil
 		}
 		msg = item.(*Message)
-		msg.State = MSG_DEQUEUED
 	}
 
 	return
@@ -166,9 +171,26 @@ func (t *Topic) msgPushDispatch() {
 func (t *Topic) waitDone() {
 	<-t.ctx.Done()
 	close(t.waitingCh)
+	t.store.Close()
+	t.retryCheckQuitC <- struct{}{}
 	t.quitC <- struct{}{}
 
 	t.logger.Info("Closing topic")
+}
+
+func (t *Topic) retryChecking() {
+
+	ticker := time.NewTicker(t.retryCheckDuration)
+	for {
+		select {
+		case <-ticker.C:
+			t.logger.Info("Check retry messages")
+		case <-t.retryCheckQuitC:
+			break
+		}
+	}
+
+	t.logger.Info("Done retry checking")
 }
 
 /*

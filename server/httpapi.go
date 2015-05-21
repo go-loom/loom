@@ -8,6 +8,8 @@ import (
 	"net/http"
 )
 
+type Json map[string]interface{}
+
 func PushHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	queueName := ps.ByName("queue")
 	queueValue, err := ioutil.ReadAll(r.Body)
@@ -22,18 +24,13 @@ func PushHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	msg, err := broker.PushMessage(queueName, queueValue)
+	msg, err := broker.PushMessage(queueName, &job)
 	if err != nil {
 		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
 		return
 	}
 
-	send(w, http.StatusCreated, Json{
-		"id":      string(msg.ID[:]),
-		"tasks":   job.Tasks,
-		"created": msg.Created,
-		"state":   msg.State,
-	})
+	send(w, http.StatusCreated, msg.JSON())
 
 	return
 }
@@ -50,31 +47,18 @@ func GetHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
 		return
 	}
-
-	var job config.Job
-	if err := json.Unmarshal(msg.Value, &job); err != nil {
-		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
+	if msg == nil {
+		send(w, http.StatusNotFound, Json{"error": "NotFound"})
 		return
 	}
 
-	topic := broker.Topic(queueName)
-	resultTasks, err := topic.store.LoadTasks(msgId)
-	if err != nil {
-		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
-		return
-	}
-
-	send(w, http.StatusCreated, Json{
-		"id":      string(msg.ID[:]),
-		"tasks":   job.Tasks,
-		"created": msg.Created,
-		"state":   msg.State,
-		"results": resultTasks,
-	})
+	msgJson := msg.JSON()
+	send(w, http.StatusCreated, msgJson)
 
 	return
 }
 
+/*
 func DeleteHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	queueName := ps.ByName("queue")
 	id := ps.ByName("id")
@@ -90,8 +74,7 @@ func DeleteHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 
 	w.WriteHeader(http.StatusNoContent)
 }
-
-type Json map[string]interface{}
+*/
 
 func send(w http.ResponseWriter, code int, data Json) error {
 	bytes, err := json.Marshal(data)

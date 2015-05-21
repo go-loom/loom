@@ -5,25 +5,52 @@ import (
 )
 
 type Retry struct {
-	Number           int    `json:"number,omitempty"`
-	Interval         string `json:"interval,omitempty"`
-	intervalDuration *time.Duration
+	Number    int    `json:"number,omitempty"`
+	Timeout   string `json:"timeout,omitempty"`
+	DelayTime string `json:"delay,omitempty"`
+	delayTime *time.Duration
+	timeout   *time.Duration
+	numRetry  int
 }
 
-func (r *Retry) GetInterval() (time.Duration, error) {
-	if r.intervalDuration != nil {
-		return *r.intervalDuration, nil
+func (r *Retry) IncrRetry() bool {
+	r.numRetry++
+	if r.numRetry >= r.Number {
+		return false
 	}
-	if r.Interval != "" {
-		d, err := time.ParseDuration(r.Interval)
+	return true
+}
+
+func (r *Retry) GetTimeout() (*time.Duration, error) {
+	if r.timeout != nil {
+		return r.timeout, nil
+	}
+	if r.Timeout != "" {
+		d, err := time.ParseDuration(r.Timeout)
+		if err != nil {
+			return nil, err
+		}
+		r.timeout = &d
+		return r.timeout, err
+	}
+
+	return nil, nil
+}
+
+func (r *Retry) GetDelayTime() (time.Duration, error) {
+	if r.delayTime != nil {
+		return *r.delayTime, nil
+	}
+	if r.DelayTime != "" {
+		d, err := time.ParseDuration(r.DelayTime)
 		if err != nil {
 			return time.Duration(0), err
 		}
-		r.intervalDuration = &d
+		r.delayTime = &d
 		return d, err
 	}
 
 	d := time.Duration(0 * time.Second)
-	r.intervalDuration = &d
-	return *r.intervalDuration, nil
+	r.delayTime = &d
+	return *r.delayTime, nil
 }

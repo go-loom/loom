@@ -17,10 +17,10 @@ func TestTopicSimple(t *testing.T) {
 
 	topic := NewTopic(ctx, "simple", 1*time.Second, store)
 	var id MessageID
-	m := NewMessage(id, []byte{'1'})
+	m := NewMessage(id, nil)
 	topic.PushMessage(m)
 
-	m2, err := topic.store.GetMessage(m.ID)
+	m2, err := topic.msgBucket.Get(m.ID)
 	if err != nil {
 		t.Error(err)
 	}
@@ -29,9 +29,6 @@ func TestTopicSimple(t *testing.T) {
 		t.Errorf("data is nill,wants 1")
 	}
 
-	if string(m2.Value) != "1" {
-		t.Errorf("data is not 1")
-	}
 }
 
 func BenchmarkTopicPush(b *testing.B) {
@@ -44,7 +41,7 @@ func BenchmarkTopicPush(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		var id MessageID
-		m := NewMessage(id, []byte{'1'})
+		m := NewMessage(id, nil)
 		topic.PushMessage(m)
 	}
 }

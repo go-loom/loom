@@ -41,7 +41,8 @@ func NewServer(port int, dbpath string, version string) *Server {
 	restRouter := httprouter.New()
 	restRouter.POST("/v1/queues/:queue", PushHandler)
 	restRouter.GET("/v1/queues/:queue/:id", GetHandler)
-	restRouter.DELETE("/v1/queues/:queue/:id", DeleteHandler)
+	//restRouter.DELETE("/v1/queues/:queue/:id", DeleteHandler)
+	//TODO:  consider later.
 
 	k.HandleHTTP("/v1/queues/", restRouter)
 	k.Config.Port = port
@@ -55,7 +56,7 @@ func (s *Server) Run() {
 
 func (s *Server) Close() error {
 	s.cancelF()
-	s.broker.Done()
 	s.kite.Close()
+	s.broker.Done()
 	return nil
 }

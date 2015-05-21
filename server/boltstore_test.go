@@ -27,15 +27,25 @@ func TestBoltStorePut(t *testing.T) {
 		os.Remove(s.(*BoltStore).Path)
 	}()
 
-	m := NewMessage(b.NewID(), []byte{'1'})
+	m := NewMessage(b.NewID(), nil)
+	mb := s.MessageBucket("test")
 
-	err = s.PutMessage(m)
+	err = mb.Put(m)
 	if err != nil {
 		t.Error(err)
 	}
 
 	var m1 *Message
-	m1, err = s.GetMessage(m.ID)
+	m1, err = mb.Get(m.ID)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	if m1 == nil {
+		t.Error("m1 is nil!")
+		return
+	}
 
 	if m1.ID != m.ID {
 		t.Errorf("ID %s,wants %s", m1.ID, m.ID)

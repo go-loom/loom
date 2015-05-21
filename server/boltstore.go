@@ -1,22 +1,20 @@
 package server
 
 import (
-	"bytes"
-	"encoding/gob"
 	"github.com/boltdb/bolt"
-	//	"time"
 )
 
 var (
-	bucket_messages     = []byte("messages")
-	bucket_pending_msgs = []byte("pending_messages")
-	bucket_tasks        = []byte("tasks")
-
-	bucket_pending_msgs_timetable = []byte("timetable")
+	boltBucketMessages = []byte("messages")
 )
 
 type BoltStore struct {
 	Path string
+	db   *bolt.DB
+}
+
+type BoltMessageBucket struct {
+	name []byte
 	db   *bolt.DB
 }
 
@@ -35,10 +33,9 @@ func (bs *BoltStore) Open() error {
 	}
 
 	bs.db = db
-
 	err = bs.db.Update(func(tx *bolt.Tx) error {
 
-		buckets := [][]byte{bucket_messages, bucket_pending_msgs, bucket_tasks}
+		buckets := [][]byte{boltBucketMessages}
 		for _, b := range buckets {
 			_, err = tx.CreateBucketIfNotExists(b)
 			if err != nil {
@@ -48,7 +45,6 @@ func (bs *BoltStore) Open() error {
 
 		return nil
 	})
-
 	return err
 }
 
@@ -57,306 +53,97 @@ func (bs *BoltStore) Close() error {
 	return err
 }
 
-func (bs *BoltStore) PutMessage(msg *Message) error {
-	err := bs.db.Update(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists(bucket_messages)
-		if err != nil {
-			return err
-		}
-
-		var buf bytes.Buffer
-		enc := gob.NewEncoder(&buf)
-		enc.Encode(msg)
-
-		return b.Put(msg.ID[:], buf.Bytes())
-	})
-	return err
+func (bs *BoltStore) MessageBucket(name string) MessageBucket {
+	b := &BoltMessageBucket{
+		name: []byte(name),
+		db:   bs.db,
+	}
+	return b
 }
 
-func (bs *BoltStore) GetMessage(id MessageID) (*Message, error) {
-	var msg *Message
+func (b *BoltMessageBucket) bucket(tx *bolt.Tx) *bolt.Bucket {
+	bucket := tx.Bucket(boltBucketMessages).Bucket(b.name)
+	return bucket
+}
 
-	err := bs.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_messages)
+func (b *BoltMessageBucket) createBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
+	bucket := tx.Bucket(boltBucketMessages)
+	bucket, err := bucket.CreateBucketIfNotExists(b.name)
+	return bucket, err
+}
 
-		v := b.Get(id[:])
+func (b *BoltMessageBucket) Get(id MessageID) (*Message, error) {
+	var m *Message
+	err := b.db.View(func(tx *bolt.Tx) error {
+		b := b.bucket(tx)
+		if b == nil {
+			return nil
+		}
+
+		v := b.Get(id.Bytes())
 
 		var err error
-		msg, err = bs.decodeMsg(v)
-		if err != nil {
-			return err
-		}
-		return nil
+		m, err = DecodeMessage(v)
+		return err
 	})
 
-	return msg, err
+	return m, err
+
 }
 
-func (bs *BoltStore) RemoveMessage(id MessageID) error {
-	err := bs.db.Update(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists(bucket_messages)
+func (b *BoltMessageBucket) Put(msg *Message) error {
+	err := b.db.Update(func(tx *bolt.Tx) error {
+		b, err := b.createBucket(tx)
 		if err != nil {
 			return err
 		}
-
-		err = b.Delete(id[:])
+		err = b.Put(msg.ID.Bytes(), msg.Encode())
 		return err
 	})
 
 	return err
 }
 
-func (bs *BoltStore) WalkMessage(walkFunc func(*Message) error) error {
-	err := bs.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_messages)
+func (b *BoltMessageBucket) Del(id MessageID) error {
+	err := b.db.Update(func(tx *bolt.Tx) error {
+		b, err := b.createBucket(tx)
+		if err != nil {
+			return err
+		}
+		err = b.Delete(id.Bytes())
+		return err
+	})
+	return err
+}
 
+func (b *BoltMessageBucket) Walk(walkFunc func(msg *Message) error) error {
+	err := b.db.View(func(tx *bolt.Tx) error {
+		b := b.bucket(tx)
+		if b == nil {
+			return nil
+		}
 		c := b.Cursor()
+
 		for k, v := c.First(); k != nil; k, v = c.Next() {
-			msg, err := bs.decodeMsg(v)
+			msg, err := DecodeMessage(v)
 			if err != nil {
 				return err
 			}
-
 			err = walkFunc(msg)
 			if err != nil {
 				return err
 			}
-
 		}
-
-		return nil
-	})
-
-	return err
-}
-
-func (bs *BoltStore) AddPendingMsg(msg *PendingMessage) error {
-	err := bs.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_pending_msgs)
-
-		//worker nested bucket
-		workerB, err := b.CreateBucketIfNotExists([]byte("worker:" + msg.WorkerId))
-		if err != nil {
-			return err
-		}
-
-		var buf bytes.Buffer
-		enc := gob.NewEncoder(&buf)
-		enc.Encode(msg)
-
-		err = workerB.Put(msg.MessageID[:], buf.Bytes())
-		if err != nil {
-			return err
-		}
-
-		//timetable nested bucket
-		/*
-			timeB, err := b.CreateBucketIfNotExists(bucket_pending_msgs_timetable)
-			if err != nil {
-				return err
-			}
-		*/
-		//t := []byte(msg.Timeout.Format(time.RFC3339))
-
-		return err
-	})
-
-	return err
-}
-
-func (bs *BoltStore) RemovePendingMsgsInWorker(workerID string) error {
-	err := bs.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_pending_msgs)
-		key := []byte("worker:" + workerID)
-		workerB := b.Bucket(key)
-		if workerB == nil {
-			return nil
-		}
-
-		err := b.DeleteBucket(key)
-		return err
-	})
-
-	return err
-}
-
-func (bs *BoltStore) RemovePendingMsg(workerID string, id MessageID) error {
-	err := bs.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_pending_msgs)
-		key := []byte("worker:" + workerID)
-		workerB := b.Bucket(key)
-		if workerB == nil {
-			return nil
-		}
-
-		err := workerB.Delete(id[:])
-		return err
-	})
-
-	return err
-}
-
-func (bs *BoltStore) GetPendingMsgsInWorker(workerID string) (msgs []*PendingMessage, err error) {
-	key := []byte("worker:" + workerID)
-
-	err = bs.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_pending_msgs)
-		wB := b.Bucket(key)
-		if wB == nil {
-			return nil
-		}
-		err := wB.ForEach(func(k, v []byte) error {
-			var msg PendingMessage
-			buf := bytes.NewBuffer(v)
-			dec := gob.NewDecoder(buf)
-			err := dec.Decode(&msg)
-			if err != nil {
-				return err
-			}
-			msgs = append(msgs, &msg)
-			return nil
-		})
-
-		return err
-	})
-
-	return
-}
-
-/*
-func (bs *BoltStore) GetPendingMsgIDList(st *time.Time, ed *time.Time) ([]MessageID, error) {
-	var ids []MessageID
-	err := bs.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_pending_ids)
-		c := b.Cursor()
-
-		b_st := []byte(st.Format(time.RFC3339))
-		b_ed := []byte(ed.Format(time.RFC3339))
-
-		for k, v := c.Seek(b_st); k != nil && bytes.Compare(k, b_ed) <= 0; k, v = c.Next() {
-
-			var id MessageID
-			copy(id[:], v)
-			ids = append(ids, id)
-		}
-
-		return nil
-	})
-
-	return ids, err
-}
-
-func (bs *BoltStore) WalkPendingMsgId(st *time.Time, ed *time.Time,
-	walkFunc func(ts *time.Time, id MessageID) error) error {
-	err := bs.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_pending_ids)
-		c := b.Cursor()
-
-		b_st := []byte(st.Format(time.RFC3339))
-		b_ed := []byte(ed.Format(time.RFC3339))
-
-		for k, v := c.Seek(b_st); k != nil && bytes.Compare(k, b_ed) <= 0; k, v = c.Next() {
-
-			ts, err := time.Parse(time.RFC3339, string(k))
-
-			var id MessageID
-			copy(id[:], v)
-			err = walkFunc(&ts, id)
-			if err != nil {
-				return err
-			}
-		}
-
 		return nil
 	})
 	return err
 }
 
-func (bs *BoltStore) PutPendingMsgID(ts *time.Time, id MessageID) error {
-	err := bs.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_pending_ids)
-
-		b_id := []byte(ts.Format(time.RFC3339))
-		err := b.Put(b_id, id[:])
+func (b *BoltMessageBucket) DelBucket() error {
+	err := b.db.Update(func(tx *bolt.Tx) error {
+		err := tx.Bucket(boltBucketMessages).DeleteBucket(b.name)
 		return err
 	})
-
 	return err
-}
-
-func (bs *BoltStore) RemovePendingMsgID(ts *time.Time) error {
-	b_id := []byte(ts.Format(time.RFC3339))
-
-	err := bs.db.Update(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_pending_ids)
-
-		err := b.Delete(b_id)
-		return err
-
-	})
-
-	return err
-}
-*/
-
-func (bs *BoltStore) SaveTasks(id MessageID, workerId string, tasks map[string]interface{}) error {
-	err := bs.db.Update(func(tx *bolt.Tx) error {
-		b, err := tx.CreateBucketIfNotExists(bucket_tasks)
-		if err != nil {
-			return err
-		}
-
-		data := map[string]map[string]interface{}{
-			workerId: tasks,
-		}
-
-		var buf bytes.Buffer
-
-		gob.Register(map[string]interface{}{})
-		enc := gob.NewEncoder(&buf)
-		enc.Encode(data)
-
-		return b.Put(id[:], buf.Bytes())
-	})
-
-	return err
-}
-
-func (bs *BoltStore) LoadTasks(id MessageID) (tasks map[string]map[string]interface{}, err error) {
-
-	err = bs.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(bucket_tasks)
-		v := b.Get(id[:])
-
-		if len(v) <= 0 {
-			return nil
-		}
-
-		var result *map[string]map[string]interface{}
-		buf := bytes.NewBuffer(v)
-
-		gob.Register(map[string]interface{}{})
-		dec := gob.NewDecoder(buf)
-		err := dec.Decode(&result)
-		if err != nil {
-			return err
-		}
-
-		if result != nil {
-			tasks = *result
-		}
-
-		return nil
-	})
-
-	return
-}
-
-func (bs *BoltStore) decodeMsg(b []byte) (*Message, error) {
-	var msg Message
-	buf := bytes.NewBuffer(b)
-	dec := gob.NewDecoder(buf)
-	err := dec.Decode(&msg)
-	return &msg, err
 
 }

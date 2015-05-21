@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/koding/kite"
+	"gopkg.in/loom.v1/config"
 	"sync"
 	"testing"
 )
@@ -48,7 +49,7 @@ func TestDispatcherSendMessage(t *testing.T) {
 
 	go func() {
 		wg.Add(1)
-		msg := NewMessage(MessageID(id.Hex()), []byte{'1'})
+		msg := NewMessage(MessageID(id.Hex()), &config.Job{})
 		dispatcher.msgPopChan <- msg
 		wg.Done()
 	}()

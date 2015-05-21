@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/koding/kite"
 	"golang.org/x/net/context"
+	"gopkg.in/loom.v1/config"
 	"gopkg.in/loom.v1/log"
 	"os"
 	"path/filepath"
@@ -122,7 +123,8 @@ func (b *Broker) HandleWorkerJobDone(r *kite.Request) (interface{}, error) {
 		b.logger.Error("Finish message messageId:%v err:%v", msgIdStr, err)
 	}
 
-	err = topic.store.RemovePendingMsg(r.Client.ID, msgId)
+	pmb := topic.store.MessageBucket(WorkerPerMessageBucketNamePrefix + r.Client.ID)
+	err = pmb.Del(msgId)
 	if err != nil {
 		b.logger.Error("Remove pending msg worker:%v messageId:%v err:%v", r.Client.ID, msgIdStr, err)
 	}
@@ -139,15 +141,26 @@ func (b *Broker) HandleWorkerJobTasksState(r *kite.Request) (interface{}, error)
 	topicName := args[2].MustString()
 
 	topic := b.Topic(topicName)
-	var msgId MessageID
-	copy(msgId[:], []byte(msgIdStr))
+	msgId := GetMessageID([]byte(msgIdStr))
 
-	err := topic.store.SaveTasks(msgId, r.Client.ID, *tasks)
+	msg, err := topic.msgBucket.Get(msgId)
 	if err != nil {
-		b.logger.Error("Save job feedback messageId: %v err: %v", msgIdStr, err)
+		b.logger.Error("Save job task results id:%v err:%v", msgIdStr, err)
+		return nil, nil
+	}
+	if msg == nil {
+		b.logger.Error("Save job task results id:%v err:%v", msgIdStr, "msg is empty")
+		return nil, nil
 	}
 
-	b.logger.Info("Received job:%v from worker:%v", msgIdStr, r.Client.ID)
+	msg.SetResults(r.Client.ID, *tasks)
+
+	err = topic.msgBucket.Put(msg)
+	if err != nil {
+		b.logger.Error("Save job task results id:%v err: %v", msgIdStr, err)
+	}
+
+	b.logger.Info("Received task results id:%v from worker:%v", msgIdStr, r.Client.ID)
 	return nil, nil
 }
 
@@ -224,9 +237,9 @@ func (b *Broker) Topic(name string) *Topic {
 	return t
 }
 
-func (b *Broker) PushMessage(name string, value interface{}) (*Message, error) {
+func (b *Broker) PushMessage(name string, job *config.Job) (*Message, error) {
 	t := b.Topic(name)
-	msg := NewMessage(b.NewID(), value.([]byte))
+	msg := NewMessage(b.NewID(), job)
 	t.PushMessage(msg)
 	return msg, nil
 }
@@ -234,7 +247,7 @@ func (b *Broker) PushMessage(name string, value interface{}) (*Message, error) {
 func (b *Broker) GetMessage(name string, id MessageID) (*Message, error) {
 	t := b.Topic(name)
 
-	msg, err := t.store.GetMessage(id)
+	msg, err := t.msgBucket.Get(id)
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,6 @@ package server
 import (
 	"gopkg.in/loom.v1/log"
 	"sync"
-	"time"
 )
 
 type Dispatcher struct {
@@ -91,12 +90,12 @@ L:
 
 			workers := d.selectWorkers()
 			if len(workers) <= 0 {
-				d.logger.Info("msgPushChan")
 				d.msgPushChan <- msg
-
-				d.logger.Info("msgPushChan")
+				d.logger.Info("No running workers. repush msg id:%v", string(msg.ID[:]))
 			}
-			d.logger.Info("Dispatched Workers:%v", len(workers))
+
+			d.logger.Info("Running workers:%v", len(workers))
+
 			for _, w := range workers {
 				ok := w.SendMessage(msg)
 
@@ -104,14 +103,18 @@ L:
 					d.logger.Error("Sending message is failure id:%v", string(msg.ID[:]))
 					d.msgPushChan <- msg
 				} else {
-					pendingMsg := &PendingMessage{
-						MessageID: msg.ID,
-						WorkerId:  w.ID,
-						PendingAt: time.Now(),
+
+					b := d.store.MessageBucket(WorkerPerMessageBucketNamePrefix + w.ID)
+					err := b.Put(msg)
+					if err != nil {
+						d.logger.Error("Save pending msg per worker id:%v err:%v", string(msg.ID[:]), err)
 					}
-					d.store.AddPendingMsg(pendingMsg)
-					msg.State = MSG_DEQUEUED
-					d.store.PutMessage(msg)
+
+					msg.State = MSG_RECEIVED
+					err = d.store.MessageBucket(MessageBucketName).Put(msg)
+					if err != nil {
+						d.logger.Error("Save msg id:%v err:%v", string(msg.ID[:]), err)
+					}
 					d.logger.Info("Pop message id:%v", string(msg.ID[:]))
 				}
 			}
