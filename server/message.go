@@ -35,6 +35,8 @@ func init() {
 	MsgStates[MSG_RECEIVED] = MsgReceivedState
 	MsgStates[MSG_SUCCESS] = MsgSuccessState
 	MsgStates[MSG_FAILURE] = MsgFailureState
+
+	gob.Register(map[string]interface{}{})
 }
 
 type MessageID [MsgIdLen]byte

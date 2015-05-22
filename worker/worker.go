@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/koding/kite"
 	"golang.org/x/net/context"
@@ -140,15 +139,19 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 		return false, err
 	}
 
-	value := msg["value"].MustString()
-	var jobConfig config.Job
-	err = json.Unmarshal([]byte(value), &jobConfig)
-	if err != nil {
+	var tasksConfig *[]*config.Task
+	if err := msg["tasks"].Unmarshal(&tasksConfig); err != nil {
 		w.logger.Error("json err: %v", err)
 		return false, err
 	}
 
-	job := NewJob(w.ctx, msg["id"].MustString(), &jobConfig)
+	w.logger.Info("tasksConfig:%v", tasksConfig)
+
+	jobConfig := &config.Job{
+		Tasks: *tasksConfig,
+	}
+
+	job := NewJob(w.ctx, msg["id"].MustString(), jobConfig)
 	job.OnTaskStateChange(func(task Task) {
 		tasks := make(Tasks)
 
