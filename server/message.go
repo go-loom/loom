@@ -26,15 +26,15 @@ const (
 )
 
 var (
-	MsgStates map[uint8]string
+	MsgStates map[int]string
 )
 
 func init() {
-	MsgStates = make(map[uint8]string)
-	MsgStates[MSG_PENDING] = MsgPendingState
-	MsgStates[MSG_RECEIVED] = MsgReceivedState
-	MsgStates[MSG_SUCCESS] = MsgSuccessState
-	MsgStates[MSG_FAILURE] = MsgFailureState
+	MsgStates = make(map[int]string)
+	MsgStates[0] = MsgPendingState
+	MsgStates[1] = MsgReceivedState
+	MsgStates[2] = MsgSuccessState
+	MsgStates[3] = MsgFailureState
 
 	gob.Register(map[string]interface{}{})
 }
@@ -49,7 +49,7 @@ type Message struct {
 	ID      MessageID
 	Job     *config.Job
 	Created time.Time
-	State   uint8
+	State   int
 	Results *TaskResults
 }
 
@@ -109,6 +109,10 @@ func (m *Message) JSON() Json {
 
 	if m.Job.Retry != nil {
 		json["retry"] = m.Job.Retry
+	}
+
+	if m.Results != nil {
+		json["results"] = m.Results
 	}
 
 	return json

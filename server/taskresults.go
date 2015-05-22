@@ -1,8 +1,8 @@
 package server
 
 type TaskResults struct {
-	WorkerId string
-	Tasks    map[string]interface{}
+	WorkerId string                 `json:"worker"`
+	Tasks    map[string]interface{} `json:"tasks"`
 }
 
 func NewTaskResults(workerId string, tasks map[string]interface{}) *TaskResults {

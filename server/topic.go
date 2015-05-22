@@ -105,6 +105,7 @@ func (t *Topic) PushPendingMsgsInWorker(workerId string) {
 		if err != nil {
 			t.logger.Error("Error message %v requeue", string(m.ID[:]))
 		}
+		t.push(m)
 
 		t.logger.Info("Message %v is re-pushed to queue", string(m.ID[:]))
 		num++
@@ -184,7 +185,7 @@ func (t *Topic) retryChecking() {
 	for {
 		select {
 		case <-ticker.C:
-			t.logger.Info("Check retry messages")
+			//t.logger.Info("Check retry messages")
 		case <-t.retryCheckQuitC:
 			break
 		}
