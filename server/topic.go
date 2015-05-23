@@ -185,6 +185,30 @@ func (t *Topic) retryChecking() {
 	for {
 		select {
 		case <-ticker.C:
+			t.pendingMsgBucket.Walk(func(m *Message) error {
+				if m.Job.Retry != nil {
+					retry := m.Job.Retry
+					timeout, err := retry.GetTimeout()
+					if err != nil {
+						t.logger.Error("job.Retry timeout err:%v", err)
+						return nil
+					}
+
+					if timeout != nil {
+						if retry.NumRetry <= retry.Number {
+							if time.Now().After(m.Created.Add(*timeout)) {
+
+								m.State = MSG_PENDING
+								t.msgBucket.Put(m)
+								t.push(m)
+								retry.IncrRetry()
+								t.logger.Info("This message takes timeout and queueing again id:%s", m.ID[:])
+							}
+						}
+					}
+				}
+				return nil
+			})
 			//t.logger.Info("Check retry messages")
 		case <-t.retryCheckQuitC:
 			break

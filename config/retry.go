@@ -10,12 +10,12 @@ type Retry struct {
 	DelayTime string `json:"delay,omitempty"`
 	delayTime *time.Duration
 	timeout   *time.Duration
-	numRetry  int
+	NumRetry  int `json:"-"`
 }
 
 func (r *Retry) IncrRetry() bool {
-	r.numRetry++
-	if r.numRetry >= r.Number {
+	r.NumRetry++
+	if r.NumRetry >= r.Number {
 		return false
 	}
 	return true
