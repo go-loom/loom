@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/config"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -113,5 +116,46 @@ func TestTopicJobRetry(t *testing.T) {
 
 	topic.checkRetryJobs()
 	checkBuckets(2)
+
+}
+
+func TestTopicFinishReportUrl(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			t.Error("method is not POST")
+			return
+		}
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Logf("body:%v", string(body))
+
+	}))
+	defer ts.Close()
+
+	topic := newTestTopic()
+	defer topic.store.Close()
+
+	retry := &config.Retry{
+		Number:  2,
+		Timeout: "1s",
+	}
+	job := &config.Job{
+		Retry:           retry,
+		FinishReportURL: ts.URL,
+	}
+
+	var id MessageID
+	copy(id[:], []byte("testid"))
+	m := NewMessage(id, job)
+
+	topic.msgBucket.Put(m)
+
+	err := topic.FinishMessage(m.ID)
+	if err != nil {
+		t.Error(err)
+		return
+	}
 
 }

@@ -1,8 +1,11 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
 	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/log"
+	"net/http"
 	"time"
 )
 
@@ -76,7 +79,7 @@ func (t *Topic) FinishMessage(id MessageID) error {
 		return err
 	}
 
-	msg.State = MSG_FINISHED
+	msg.State = MSG_SUCCESS
 	err = t.msgBucket.Put(msg)
 	if err != nil {
 		return err
@@ -85,6 +88,25 @@ func (t *Topic) FinishMessage(id MessageID) error {
 	err = t.pendingMsgBucket.Del(msg.ID)
 	if err != nil {
 		return err
+	}
+
+	if msg.Job.FinishReportURL != "" {
+		url := msg.Job.FinishReportURL
+		msgJson, err := json.Marshal(msg.JSON())
+		if err != nil {
+			t.logger.Error("FinishReportURL json err:%v", err)
+			return err
+		}
+
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(msgJson))
+		req.Header.Set("Content-Type", "application/json")
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.logger.Error("FinishReportURL request err:%v", err)
+			return err
+		}
+		defer resp.Body.Close()
 	}
 
 	t.logger.Info("Finished message id:%v", string(msg.ID.Bytes()))

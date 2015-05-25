@@ -12,14 +12,12 @@ const MsgIdLen = 16
 const (
 	MSG_PENDING = iota
 	MSG_RECEIVED
-	MSG_FINISHED
 	MSG_SUCCESS
 	MSG_FAILURE
 )
 
 const (
 	MsgPendingState  = "PENDING"
-	MsgFinishedState = "FINISHED"
 	MsgReceivedState = "RECEIVED"
 	MsgSuccessState  = "SUCCESS"
 	MsgFailureState  = "FAILURE"
