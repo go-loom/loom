@@ -1,14 +1,17 @@
 {
+  "retry" : {
+      "timeout" : "10m"
+  },
   "tasks": [
     {
       "name": "hello",
-      "cmd": "echo hello",
+      "cmd": "echo hello ",
       "when": "JOB",
       "then": "hello"
     },
     {
       "name": "world",
-      "cmd": "echo world ; sleep 10",
+      "cmd": "echo world ; sleep 100",
       "when": "hello",
       "then": "world"
     },

@@ -103,6 +103,7 @@ L:
 					d.logger.Error("Sending message is failure id:%v", string(msg.ID[:]))
 					d.msgPushChan <- msg
 				} else {
+					msg.State = MSG_RECEIVED
 
 					b := d.store.MessageBucket(WorkerPerMessageBucketNamePrefix + w.ID)
 					err := b.Put(msg)
@@ -110,11 +111,11 @@ L:
 						d.logger.Error("Save pending msg per worker id:%v err:%v", string(msg.ID[:]), err)
 					}
 
-					msg.State = MSG_RECEIVED
 					err = d.store.MessageBucket(MessageBucketName).Put(msg)
 					if err != nil {
 						d.logger.Error("Save msg id:%v err:%v", string(msg.ID[:]), err)
 					}
+
 					d.logger.Info("Pop message id:%v", string(msg.ID[:]))
 				}
 			}

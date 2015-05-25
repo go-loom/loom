@@ -144,6 +144,7 @@ func (b *Broker) HandleWorkerJobTasksState(r *kite.Request) (interface{}, error)
 	msgId := GetMessageID([]byte(msgIdStr))
 
 	msg, err := topic.msgBucket.Get(msgId)
+	msg.State = MSG_RECEIVED
 	if err != nil {
 		b.logger.Error("Save job task results id:%v err:%v", msgIdStr, err)
 		return nil, nil
