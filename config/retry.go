@@ -5,12 +5,13 @@ import (
 )
 
 type Retry struct {
-	Number    int    `json:"number,omitempty"`
-	Timeout   string `json:"timeout,omitempty"`
-	DelayTime string `json:"delay,omitempty"`
-	delayTime *time.Duration
-	timeout   *time.Duration
-	NumRetry  int `json:"-"`
+	Number      int    `json:"number,omitempty"`
+	Timeout     string `json:"timeout,omitempty"`
+	DelayTime   string `json:"delay,omitempty"`
+	delayTime   *time.Duration
+	timeout     *time.Duration
+	NumRetry    int        `json:"-"`
+	CheckedTime *time.Time `json:"-"`
 }
 
 func (r *Retry) IncrRetry() bool {

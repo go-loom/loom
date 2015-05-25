@@ -40,7 +40,7 @@ func NewTopic(ctx context.Context, name string, retryCheckDuration time.Duration
 	}
 
 	go topic.waitDone()
-	go topic.retryChecking()
+	go topic.retryTick()
 
 	return topic
 }
@@ -179,37 +179,12 @@ func (t *Topic) waitDone() {
 	t.logger.Info("Closing topic")
 }
 
-func (t *Topic) retryChecking() {
-
+func (t *Topic) retryTick() {
 	ticker := time.NewTicker(t.retryCheckDuration)
 	for {
 		select {
 		case <-ticker.C:
-			t.pendingMsgBucket.Walk(func(m *Message) error {
-				if m.Job.Retry != nil {
-					retry := m.Job.Retry
-					timeout, err := retry.GetTimeout()
-					if err != nil {
-						t.logger.Error("job.Retry timeout err:%v", err)
-						return nil
-					}
-
-					if timeout != nil {
-						if retry.NumRetry <= retry.Number {
-							if time.Now().After(m.Created.Add(*timeout)) {
-
-								m.State = MSG_PENDING
-								t.msgBucket.Put(m)
-								t.push(m)
-								retry.IncrRetry()
-								t.logger.Info("This message takes timeout and queueing again id:%s", m.ID[:])
-							}
-						}
-					}
-				}
-				return nil
-			})
-			//t.logger.Info("Check retry messages")
+			t.checkRetryJobs()
 		case <-t.retryCheckQuitC:
 			break
 		}
@@ -218,41 +193,54 @@ func (t *Topic) retryChecking() {
 	t.logger.Info("Done retry checking")
 }
 
-/*
-func (t *Topic) pendingChecker() {
+func (t *Topic) checkRetryJobs() {
+	t.pendingMsgBucket.Walk(func(m *Message) error {
+		if m.Job.Retry != nil {
+			retry := m.Job.Retry
+			timeout, err := retry.GetTimeout()
 
-	//st := time.Now()
-	st, _ := time.Parse("2006-Jan-02", "2013-Feb-03")
-
-	walkFunc := func(ts *time.Time, id MessageID) error {
-		if ts.Add(t.PendingTimeout).Before(time.Now()) {
-			m, err := t.store.GetMessage(id)
 			if err != nil {
-				//TODO: Log
+				t.logger.Error("job.Retry timeout err:%v", err)
+				return nil
 			}
 
-			m.State = MSG_ENQUEUED
-			t.store.PutMessage(m)
-			t.store.RemovePendingMsgID(ts)
-			t.push(m)
-		}
+			if timeout != nil {
+				if retry.NumRetry >= retry.Number {
+					m.State = MSG_FAILURE
+					err := t.msgBucket.Put(m)
+					if err != nil {
+						t.logger.Error("t.msgBucket.Put err:%v", err)
+						return nil
+					}
+					err = t.pendingMsgBucket.Del(m.ID)
+					if err != nil {
+						t.logger.Error("t.pendingMsgBucket err:%v", err)
+						return nil
+					}
+				} else if retry.NumRetry < retry.Number {
 
+					checkedTime := retry.CheckedTime
+					if retry.CheckedTime == nil {
+						checkedTime = &m.Created
+					}
+
+					if time.Now().After(checkedTime.Add(*timeout)) {
+						retry.IncrRetry()
+
+						now := time.Now()
+						retry.CheckedTime = &now
+
+						m.State = MSG_PENDING
+						t.msgBucket.Put(m)
+						t.pendingMsgBucket.Put(m)
+						if m.State == MSG_RECEIVED {
+							t.push(m)
+						}
+						t.logger.Info("This message is timeout and is queueing again id:%s", m.ID[:])
+					}
+				}
+			}
+		}
 		return nil
-	}
-
-	ticker := time.NewTicker(t.pendingCheckInterval)
-	for {
-		select {
-		case <-ticker.C:
-			ed := st.Add(t.pendingCheckInterval)
-			err := t.store.WalkPendingMsgId(&st, &ed, walkFunc)
-			if err != nil {
-				//TODO: Log
-
-			}
-			st = ed
-		}
-	}
-
+	})
 }
-*/
