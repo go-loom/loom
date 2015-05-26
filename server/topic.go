@@ -240,6 +240,7 @@ func (t *Topic) checkRetryJobs() {
 						return nil
 					}
 					t.logger.Error("Taken maxretry count id:%v num:%v", string(m.ID[:]), retry.Number)
+
 				} else if retry.NumRetry < retry.Number {
 
 					checkedTime := retry.CheckedTime
@@ -255,11 +256,10 @@ func (t *Topic) checkRetryJobs() {
 
 						if m.State == MSG_RECEIVED {
 							m.State = MSG_PENDING
-							t.msgBucket.Put(m)
-							t.pendingMsgBucket.Put(m)
-
-							t.push(m)
 						}
+						t.msgBucket.Put(m)
+						t.pendingMsgBucket.Put(m)
+						t.push(m)
 
 						t.logger.Info("This message is timeout and is queueing again id:%s", m.ID[:])
 					}
