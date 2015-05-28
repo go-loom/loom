@@ -22,8 +22,8 @@ func (tasks Tasks) JSON() (result map[string]interface{}) {
 
 		taskMap := map[string]interface{}{
 			"name":   t.TaskName(),
-			"ok":     t.Ok(),
 			"err":    "",
+			"ok":     t.Ok(),
 			"output": t.Output(),
 			"state":  t.State(),
 		}
@@ -31,11 +31,11 @@ func (tasks Tasks) JSON() (result map[string]interface{}) {
 		ts := t.StartEndTimes()
 		if len(ts) >= 1 {
 			st := ts[0]
-			taskMap["started"] = st.UTC().Format(time.RFC3339)
+			taskMap["started"] = st
 		}
 		if len(ts) >= 2 {
 			et := ts[1]
-			taskMap["ended"] = et.UTC().Format(time.RFC3339)
+			taskMap["ended"] = et
 		}
 
 		if t.Err() != nil {

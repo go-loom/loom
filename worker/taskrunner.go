@@ -124,8 +124,9 @@ L:
 
 			//Call state change handlers
 			tr.job.OnTaskChanged(tr)
-
-			if state == TASK_STATE_PROCESS {
+			if state == TASK_STATE_INIT {
+				tr.startTime = time.Now()
+			} else if state == TASK_STATE_PROCESS {
 				err := tr.processing()
 				if err != nil {
 					tr.eventC <- TASK_EVENT_ERROR
@@ -133,6 +134,7 @@ L:
 					tr.eventC <- TASK_EVENT_SUCCESS
 				}
 			} else {
+				tr.endTime = time.Now()
 				tr.job.OnTaskDone(tr)
 				tr.eventC <- TASK_QUIT
 				break L
@@ -161,7 +163,6 @@ L:
 		}
 	}
 
-	tr.endTime = time.Now()
 	tr.logger.Info("End")
 }
 
