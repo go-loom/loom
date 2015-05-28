@@ -97,6 +97,12 @@ func NewTaskRunner(job *Job, task *config.Task, templateCtx map[string]interface
 					tr.logger.Debug("Enter state src:%v dst:%v", e.Src, e.Dst)
 				}
 			},
+			"enter_PROCESS": func(e *fsm.Event) {
+				tr.startTime = time.Now()
+			},
+			"leave_PROCESS": func(e *fsm.Event) {
+				tr.endTime = time.Now()
+			},
 		},
 	)
 	tr.fsm = tr_fsm
@@ -124,9 +130,7 @@ L:
 
 			//Call state change handlers
 			tr.job.OnTaskChanged(tr)
-			if state == TASK_STATE_INIT {
-				tr.startTime = time.Now()
-			} else if state == TASK_STATE_PROCESS {
+			if state == TASK_STATE_PROCESS {
 				err := tr.processing()
 				if err != nil {
 					tr.eventC <- TASK_EVENT_ERROR
@@ -134,7 +138,6 @@ L:
 					tr.eventC <- TASK_EVENT_SUCCESS
 				}
 			} else {
-				tr.endTime = time.Now()
 				tr.job.OnTaskDone(tr)
 				tr.eventC <- TASK_QUIT
 				break L
