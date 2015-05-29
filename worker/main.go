@@ -2,6 +2,7 @@ package worker
 
 import (
 	"github.com/koding/kite"
+	"gopkg.in/loom.v1/expvar"
 	"gopkg.in/loom.v1/log"
 	"os"
 )
@@ -13,6 +14,8 @@ func New(serverURL string, topic string, maxJobSize int, version string) *Worker
 
 	k := kite.New(workerName, version)
 	k.Config.DisableAuthentication = true
+
+	k.HandleHTTPFunc("/debug/vars", expvar.ExpvarHandler)
 
 	w := NewWorker(serverURL, topic, maxJobSize, k)
 	err := w.Init()

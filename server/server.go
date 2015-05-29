@@ -4,6 +4,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/koding/kite"
 	"golang.org/x/net/context"
+	"gopkg.in/loom.v1/expvar"
 	"gopkg.in/loom.v1/log"
 	"os"
 )
@@ -45,6 +46,7 @@ func NewServer(port int, dbpath string, version string) *Server {
 	//TODO:  consider later.
 
 	k.HandleHTTP("/v1/queues/", restRouter)
+	k.HandleHTTPFunc("/debug/vars", expvar.ExpvarHandler)
 	k.Config.Port = port
 
 	return s
