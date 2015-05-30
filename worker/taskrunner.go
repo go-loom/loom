@@ -181,6 +181,7 @@ func (tr *TaskRunner) processing() error {
 	err := try.Do(func(attempt int) (bool, error) {
 		err := processFunc()
 		if err != nil {
+			tr.logger.Warning("Retry processing attempt num:%v err:%v", attempt, err)
 			d, err := tr.task.Retry.GetDelayTime()
 			if err != nil {
 				tr.logger.Error("Error retry delaytime err:%v", err)
