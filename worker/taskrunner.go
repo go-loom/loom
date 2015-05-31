@@ -196,22 +196,65 @@ func (tr *TaskRunner) processing() error {
 	return err
 }
 
-func (tr *TaskRunner) cmd() error {
+func (tr *TaskRunner) cmd() (err error) {
 
 	cmdstr, err := tr.task.Read(tr.task.Cmd, tr.templateCtx)
 	if err != nil {
 		tr.logger.Error("cmd statement has template error:%v", err)
 		return err
 	}
+
+	timeout, err := tr.task.Retry.GetTimeout()
+	if err != nil {
+		tr.logger.Error("task retry timeout error:%v", err)
+		timeout = nil
+	}
+
 	cmd := exec.Command("bash", "-c", cmdstr)
-	out, err := cmd.CombinedOutput()
-	tr.output = string(out)
+
+	var b bytes.Buffer
+	cmd.Stdout = &b
+	cmd.Stderr = &b
+
+	if err := cmd.Start(); err != nil {
+		tr.logger.Error("cmd:%v error:%v", cmdstr, err)
+		return err
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	if timeout != nil {
+		select {
+		case <-time.After(*timeout):
+			if err := cmd.Process.Kill(); err != nil {
+				tr.logger.Error("failed to kill err:%v", err)
+			}
+			err = <-done
+			if err != nil {
+				tr.logger.Error("Process timeout with err:%v", err)
+			}
+		case err = <-done:
+			if err != nil {
+				tr.logger.Error("Process done with err:%v", err)
+			}
+		}
+	} else {
+		err = <-done
+		if err != nil {
+			tr.logger.Error("Process done with err:%v", err)
+		}
+	}
+
+	tr.output = b.String()
 
 	if tr.logger.IsDebug() {
 		tr.logger.Debug("cmd: %s output: %v", cmdstr, tr.output)
 	}
 
-	return err
+	return
 }
 
 func (tr *TaskRunner) http() (err error) {

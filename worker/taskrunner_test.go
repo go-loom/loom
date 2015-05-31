@@ -207,3 +207,37 @@ func TestNewTaskRunnerRetry(t *testing.T) {
 	t.Logf("task.output:%v", tr.Output())
 
 }
+
+func TestNewTaskRunnerRetryTimeout(t *testing.T) {
+	a := assert.Assert(t)
+	ctx := context.Background()
+	task := &config.Task{
+		Name: "helloworld",
+		Cmd:  "echo {{ .JOB_ID }} ; sleep 1 ",
+		Retry: config.Retry{
+			Number:  3,
+			Timeout: "0.1s",
+		},
+	}
+	jobConfig := &config.Job{}
+	jobConfig.Tasks = append(jobConfig.Tasks, task)
+
+	tasks := make(Tasks)
+	for _, t := range jobConfig.Tasks {
+		tasks[t.Name] = t
+	}
+
+	tctx := tasks.JSON()
+	tctx["JOB_ID"] = "id"
+
+	job := NewJob(ctx, "id", jobConfig)
+	tr := NewTaskRunner(job, task, tctx)
+	tr.Run()
+
+	<-job.ctx.Done()
+
+	a.Equal(tr.fsm.Current(), "ERROR")
+	a.Equal(tr.State(), "ERROR")
+	t.Logf("task.output:%v", tr.Output())
+
+}
