@@ -1,0 +1,16 @@
+machine:
+    services:
+        - docker
+dependencies:
+    override:
+        - docker info
+        - docker build -t goloom/loom:$CIRCLE_SHA1 . 
+test:
+    override:
+        - docker run --entrypoint=go goloom/loom:$CIRCLE_SHA1 test ./... -race
+deployment:
+    hub:
+        branch: v1
+        commands:
+            - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+            - ./push.sh $CIRCLE_SHA1
