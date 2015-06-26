@@ -2,6 +2,9 @@
 
 SHA1=$1
 
+# Exit on any error
+set -e
+
 #Check this commit is tagging
 TAG=`git name-rev --name-only --tags $SHA1`
 

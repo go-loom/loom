@@ -3,6 +3,7 @@ machine:
         - docker
 dependencies:
     override:
+        - docker version
         - docker info
         - docker build -t goloom/loom:$CIRCLE_SHA1 . 
 test:
