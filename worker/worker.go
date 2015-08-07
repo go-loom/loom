@@ -139,6 +139,15 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 		return false, err
 	}
 
+	//Consider this job is working or new.
+	w.jobsMutex.RLock()
+	jobId := msg["id"].MustString()
+	if _, ok := w.jobs[jobId]; ok {
+		w.logger.Info("Job has already working.")
+		return true, nil
+	}
+	w.jobsMutex.RUnlock()
+
 	var tasksConfig *[]*config.Task
 	if err := msg["tasks"].Unmarshal(&tasksConfig); err != nil {
 		w.logger.Error("json err: %v", err)

@@ -5,7 +5,7 @@
   "tasks": [
     {
       "name": "hello",
-      "cmd": "echo hello ",
+      "cmd": "echo hello ; sleep 5000 ",
       "when": "JOB",
       "then": "hello"
     },
