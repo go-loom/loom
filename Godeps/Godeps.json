@@ -1,12 +1,7 @@
 {
 	"ImportPath": "gopkg.in/loom.v1",
-	"GoVersion": "go1.4.2",
+	"GoVersion": "go1.5.3",
 	"Deps": [
-		{
-			"ImportPath": "code.google.com/p/go.crypto/ssh/terminal",
-			"Comment": "null-236",
-			"Rev": "69e2a90ed92d03812364aeb947b7068dc42e561e"
-		},
 		{
 			"ImportPath": "github.com/boltdb/bolt",
 			"Comment": "v1.0-72-g8a2a9b2",
@@ -27,16 +22,20 @@
 			"Rev": "5ca80149b9d3f8b863af0e2bb6742e608603bd99"
 		},
 		{
+			"ImportPath": "github.com/gorilla/context",
+			"Rev": "1ea25387ff6f684839d82767c1733ff4d4d15d0a"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Rev": "0eeaf8392f5b04950925b8a69fe70f110fa7cbfc"
+		},
+		{
 			"ImportPath": "github.com/gorilla/websocket",
 			"Rev": "ecff5aabe41f13b4cdf897e3c0c9bbccbe552a29"
 		},
 		{
 			"ImportPath": "github.com/juju/ratelimit",
 			"Rev": "aa5bb718d4d435629821789cb90970319f57bfe5"
-		},
-		{
-			"ImportPath": "github.com/julienschmidt/httprouter",
-			"Rev": "8c199fb6259ffc1af525cc3ad52ee60ba8359669"
 		},
 		{
 			"ImportPath": "github.com/koding/cache",
@@ -63,12 +62,12 @@
 			"Rev": "442e588f213303bec7936deba67901f8fc8f18b1"
 		},
 		{
-			"ImportPath": "github.com/nu7hatch/gouuid",
-			"Rev": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3"
+			"ImportPath": "github.com/satori/go.uuid",
+			"Rev": "e673fdd4dea8a7334adbbe7f57b7e4b00bdc5502"
 		},
 		{
-			"ImportPath": "github.com/seanpont/assert",
-			"Rev": "4b06649e62f72436465fa536df365be748192ba3"
+			"ImportPath": "golang.org/x/crypto/ssh/terminal",
+			"Rev": "c197bcf24cde29d3f73c7b4ac6fd41f4384e8af6"
 		},
 		{
 			"ImportPath": "golang.org/x/net/context",
