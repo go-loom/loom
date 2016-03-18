@@ -1,7 +1,6 @@
 package server
 
 import (
-	"github.com/julienschmidt/httprouter"
 	"github.com/koding/kite"
 	"golang.org/x/net/context"
 	"gopkg.in/loom.v1/expvar"
@@ -39,13 +38,12 @@ func NewServer(port int, dbpath string, version string) *Server {
 		cancelF: cancelF,
 	}
 
-	restRouter := httprouter.New()
-	restRouter.POST("/v1/queues/:queue", PushHandler)
-	restRouter.GET("/v1/queues/:queue/:id", GetHandler)
 	//restRouter.DELETE("/v1/queues/:queue/:id", DeleteHandler)
 	//TODO:  consider later.
 
-	k.HandleHTTP("/v1/queues/", restRouter)
+	k.HandleHTTPFunc("/v1/queues/{queue}", PushHandler)
+	k.HandleHTTPFunc("/v1/queues/{queue}/{id}", GetHandler)
+
 	k.HandleHTTPFunc("/debug/vars", expvar.ExpvarHandler)
 	k.Config.Port = port
 

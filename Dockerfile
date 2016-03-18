@@ -1,4 +1,4 @@
-FROM golang:1.4.2
+FROM golang:1.5.3
 COPY . /go/src/gopkg.in/loom.v1
 WORKDIR /go/src/gopkg.in/loom.v1
 

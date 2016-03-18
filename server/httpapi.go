@@ -2,7 +2,7 @@ package server
 
 import (
 	"encoding/json"
-	"github.com/julienschmidt/httprouter"
+	"github.com/gorilla/mux"
 	"gopkg.in/loom.v1/config"
 	"io/ioutil"
 	"net/http"
@@ -10,8 +10,14 @@ import (
 
 type Json map[string]interface{}
 
-func PushHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	queueName := ps.ByName("queue")
+func PushHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		send(w, http.StatusMethodNotAllowed, Json{"error": "Not supported method"})
+		return
+	}
+
+	queueName := mux.Vars(r)["queue"]
+
 	queueValue, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
@@ -35,9 +41,14 @@ func PushHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	return
 }
 
-func GetHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	queueName := ps.ByName("queue")
-	id := ps.ByName("id")
+func GetHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		send(w, http.StatusMethodNotAllowed, Json{"error": "Not supported method"})
+		return
+	}
+
+	queueName := mux.Vars(r)["queue"]
+	id := mux.Vars(r)["id"]
 
 	var msgId MessageID
 	copy(msgId[:], id)
@@ -60,8 +71,13 @@ func GetHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 /*
 func DeleteHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	queueName := ps.ByName("queue")
-	id := ps.ByName("id")
+	if r.Method != "DELETE" {
+		send(w, http.StatusMethodNotAllowed, Json{"error": "Not supported method"})
+		return
+	}
+
+	queueName := mux.Vars(r)["queue"]
+	id := mux.Vars(r)["id"]
 
 	var msgId MessageID
 	copy(msgId[:], id)
