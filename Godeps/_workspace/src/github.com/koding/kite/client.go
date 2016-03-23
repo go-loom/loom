@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -46,8 +47,17 @@ type Client struct {
 	// Should we process incoming messages concurrently or not? Default: true
 	Concurrent bool
 
+	// ClientFunc is called each time new sockjs.Session is established.
+	// The session will use returned *http.Client for HTTP round trips
+	// for XHR transport.
+	//
+	// If ClientFunc is nil, sockjs.Session will use default, internal
+	// *http.Client value.
+	ClientFunc func(*sockjsclient.DialOptions) *http.Client
+
 	// To signal waiters of Go() on disconnect.
-	disconnect chan struct{}
+	disconnect   chan struct{}
+	disconnectMu sync.Mutex // protects disconnect chan
 
 	// To signal about the close
 	closeChan chan struct{}
@@ -123,6 +133,7 @@ type response struct {
 func (k *Kite) NewClient(remoteURL string) *Client {
 	c := &Client{
 		LocalKite:     k,
+		ClientFunc:    k.ClientFunc,
 		URL:           remoteURL,
 		disconnect:    make(chan struct{}, 1),
 		closeChan:     make(chan struct{}),
@@ -183,12 +194,16 @@ func (c *Client) dial(timeout time.Duration) (err error) {
 		BaseURL:         c.URL,
 		ReadBufferSize:  c.ReadBufferSize,
 		WriteBufferSize: c.WriteBufferSize,
+		ClientFunc:      c.ClientFunc,
 		Timeout:         timeout,
 	}
 
 	transport := c.LocalKite.Config.Transport
 
 	c.LocalKite.Log.Debug("Client transport is set to '%s'", transport)
+
+	c.m.Lock()
+	defer c.m.Unlock()
 
 	switch transport {
 	case config.WebSocket:
@@ -221,9 +236,14 @@ func (c *Client) dial(timeout time.Duration) (err error) {
 func (c *Client) dialForever(connectNotifyChan chan bool) {
 	dial := func() error {
 		c.LocalKite.Log.Info("Dialing '%s' kite: %s", c.Kite.Name, c.URL)
+
+		c.sendMu.Lock()
 		if !c.Reconnect {
+			c.sendMu.Unlock()
 			return nil
 		}
+		c.sendMu.Unlock()
+
 		return c.dial(0)
 	}
 
@@ -237,9 +257,12 @@ func (c *Client) dialForever(connectNotifyChan chan bool) {
 }
 
 func (c *Client) RemoteAddr() string {
+	c.m.RLock()
 	if c.session == nil {
+		c.m.RUnlock()
 		return ""
 	}
+	c.m.RUnlock()
 
 	websocketsession, ok := c.session.(*sockjsclient.WebsocketSession)
 	if !ok {
@@ -268,17 +291,21 @@ func (c *Client) run() {
 	c.callOnDisconnectHandlers()
 
 	// let others know that the client has disconnected
+	c.disconnectMu.Lock()
 	select {
 	case c.disconnect <- struct{}{}:
 	default:
 	}
+	c.disconnectMu.Unlock()
 
 	if c.Reconnect {
 		// we override it so it doesn't get selected next time. Because we are
 		// redialing, so after redial if a new method is called, the disconnect
 		// channel is being read and the local "disconnect" message will be the
 		// final response. This shouldn't be happen for redials.
+		c.disconnectMu.Lock()
 		c.disconnect = make(chan struct{}, 1)
+		c.disconnectMu.Unlock()
 		go c.dialForever(nil)
 	}
 }
@@ -310,9 +337,12 @@ func (c *Client) readLoop() error {
 
 // receiveData reads a message from session.
 func (c *Client) receiveData() ([]byte, error) {
+	c.m.RLock()
 	if c.session == nil {
+		c.m.RUnlock()
 		return nil, errors.New("not connected")
 	}
+	c.m.RUnlock()
 
 	msg, err := c.session.Recv()
 	if err != nil {
@@ -379,10 +409,15 @@ func (c *Client) processMessage(data []byte) (err error) {
 }
 
 func (c *Client) Close() {
+	c.sendMu.Lock()
 	c.Reconnect = false
+	c.sendMu.Unlock()
+
+	c.m.RLock()
 	if c.session != nil {
 		c.session.Close(3000, "Go away!")
 	}
+	c.m.RUnlock()
 
 	c.sendMu.Lock()
 	close(c.send)
@@ -394,7 +429,9 @@ func (c *Client) Close() {
 	c.wg.Wait()
 
 	// GC, not to cause a memory leak
+	c.sendMu.Lock()
 	c.send = nil
+	c.sendMu.Unlock()
 }
 
 // sendhub sends the msg received from the send channel to the remote client
@@ -411,10 +448,13 @@ func (c *Client) sendHub() {
 			}
 
 			c.LocalKite.Log.Debug("Sending: %s", string(msg))
+			c.m.RLock()
 			if c.session == nil {
+				c.m.RUnlock()
 				c.LocalKite.Log.Error("not connected")
 				continue
 			}
+			c.m.RUnlock()
 
 			err := c.session.Send(string(msg))
 			if err != nil {
@@ -501,7 +541,6 @@ func (c *Client) Go(method string, args ...interface{}) chan *response {
 func (c *Client) GoWithTimeout(method string, timeout time.Duration, args ...interface{}) chan *response {
 	// We will return this channel to the caller.
 	// It can wait on this channel to get the response.
-	c.LocalKite.Log.Debug("Telling method [%s] on kite [%s]", method, c.Name)
 	responseChan := make(chan *response, 1)
 
 	c.sendMethod(method, args, timeout, responseChan)
@@ -547,6 +586,9 @@ func (c *Client) sendMethod(method string, args []interface{}, timeout time.Dura
 
 	// Waits until the response has came or the connection has disconnected.
 	go func() {
+		c.disconnectMu.Lock()
+		defer c.disconnectMu.Unlock()
+
 		select {
 		case resp := <-doneChan:
 			responseChan <- resp
@@ -615,9 +657,12 @@ func (c *Client) marshalAndSend(method interface{}, arguments []interface{}) (ca
 	case <-c.closeChan:
 		return nil, errors.New("can not send")
 	default:
+		c.m.RLock()
 		if c.session == nil {
+			c.m.RUnlock()
 			return nil, errors.New("can't send, session is not established yet")
 		}
+		c.m.RUnlock()
 
 		c.sendMu.Lock()
 		c.send <- data

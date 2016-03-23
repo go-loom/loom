@@ -1,6 +1,7 @@
 {
 	"ImportPath": "gopkg.in/loom.v1",
-	"GoVersion": "go1.5.3",
+	"GoVersion": "go1.5",
+	"GodepVersion": "v60",
 	"Deps": [
 		{
 			"ImportPath": "github.com/boltdb/bolt",
@@ -43,7 +44,31 @@
 		},
 		{
 			"ImportPath": "github.com/koding/kite",
-			"Rev": "1c5b9f6198050f6637399d5b1c7298e8594d2219"
+			"Rev": "19ceb4e61b5cf3198c87a5ca6be99d4ca630bb23"
+		},
+		{
+			"ImportPath": "github.com/koding/kite/config",
+			"Rev": "19ceb4e61b5cf3198c87a5ca6be99d4ca630bb23"
+		},
+		{
+			"ImportPath": "github.com/koding/kite/dnode",
+			"Rev": "19ceb4e61b5cf3198c87a5ca6be99d4ca630bb23"
+		},
+		{
+			"ImportPath": "github.com/koding/kite/kitekey",
+			"Rev": "19ceb4e61b5cf3198c87a5ca6be99d4ca630bb23"
+		},
+		{
+			"ImportPath": "github.com/koding/kite/protocol",
+			"Rev": "19ceb4e61b5cf3198c87a5ca6be99d4ca630bb23"
+		},
+		{
+			"ImportPath": "github.com/koding/kite/sockjsclient",
+			"Rev": "19ceb4e61b5cf3198c87a5ca6be99d4ca630bb23"
+		},
+		{
+			"ImportPath": "github.com/koding/kite/systeminfo",
+			"Rev": "19ceb4e61b5cf3198c87a5ca6be99d4ca630bb23"
 		},
 		{
 			"ImportPath": "github.com/koding/logging",

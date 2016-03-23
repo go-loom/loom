@@ -12,11 +12,14 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/mux"
 	"github.com/koding/kite/config"
 	"github.com/koding/kite/protocol"
-	"github.com/nu7hatch/gouuid"
+	"github.com/koding/kite/sockjsclient"
+	uuid "github.com/satori/go.uuid"
 	"gopkg.in/igm/sockjs-go.v2/sockjs"
 )
 
@@ -51,6 +54,12 @@ type Kite struct {
 	// Keys are the authentication types (options.auth.type).
 	Authenticators map[string]func(*Request) error
 
+	// ClientFunc is used as the default value for kite.Client.ClientFunc.
+	// If nil, a default ClientFunc will be used.
+	//
+	// See also: kite.Client.ClientFunc docstring.
+	ClientFunc func(*sockjsclient.DialOptions) *http.Client
+
 	// Kontrol keys to trust. Kontrol will issue access tokens for kites
 	// that are signed with the private counterpart of these keys.
 	// Key data must be PEM encoded.
@@ -66,7 +75,7 @@ type Kite struct {
 	MethodHandling MethodHandling
 
 	// HTTP muxer
-	httpHandler *http.ServeMux
+	muxer *mux.Router
 
 	// kontrolclient is used to register to kontrol and query third party kites
 	// from kontrol
@@ -105,10 +114,7 @@ func New(name, version string) *Kite {
 		panic("kite: version must be 3-digits semantic version")
 	}
 
-	kiteID, err := uuid.NewV4()
-	if err != nil {
-		panic(fmt.Sprintf("kite: cannot generate unique ID: %s", err.Error()))
-	}
+	kiteID := uuid.NewV4()
 
 	l, setlevel := newLogger(name)
 
@@ -133,11 +139,16 @@ func New(name, version string) *Kite {
 		Id:                 kiteID.String(),
 		readyC:             make(chan bool),
 		closeC:             make(chan bool),
-		httpHandler:        http.NewServeMux(),
+		muxer:              mux.NewRouter(),
 	}
 
-	// All websocket communication is done through this endpoint.
-	k.HandleHTTP("/", sockjs.NewHandler("/kite", sockjs.DefaultOptions, k.sockjsHandler))
+	// We change the heartbeat interval from 25 seconds to 10 seconds. This is
+	// better for environments such as AWS ELB.
+	sockjsOpts := sockjs.DefaultOptions
+	sockjsOpts.HeartbeatDelay = 10 * time.Second
+
+	// All sockjs communication is done through this endpoint..
+	k.muxer.PathPrefix("/kite").Handler(sockjs.NewHandler("/kite", sockjsOpts, k.sockjsHandler))
 
 	// Add useful debug logs
 	k.OnConnect(func(c *Client) { k.Log.Debug("New session: %s", c.session.ID()) })
@@ -178,19 +189,19 @@ func (k *Kite) TrustKontrolKey(issuer, key string) {
 // HandleHTTP registers the HTTP handler for the given pattern into the
 // underlying HTTP muxer.
 func (k *Kite) HandleHTTP(pattern string, handler http.Handler) {
-	k.httpHandler.Handle(pattern, handler)
+	k.muxer.Handle(pattern, handler)
 }
 
 // HandleHTTPFunc registers the HTTP handler for the given pattern into the
 // underlying HTTP muxer.
 func (k *Kite) HandleHTTPFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
-	k.httpHandler.HandleFunc(pattern, handler)
+	k.muxer.HandleFunc(pattern, handler)
 }
 
 // ServeHTTP helps Kite to satisfy the http.Handler interface. So kite can be
 // used as a standard http server.
 func (k *Kite) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	k.httpHandler.ServeHTTP(w, req)
+	k.muxer.ServeHTTP(w, req)
 }
 
 func (k *Kite) sockjsHandler(session sockjs.Session) {
@@ -199,7 +210,9 @@ func (k *Kite) sockjsHandler(session sockjs.Session) {
 	// This Client also handles the connected client.
 	// Since both sides can send/receive messages the client code is reused here.
 	c := k.NewClient("")
+	c.m.Lock()
 	c.session = session
+	c.m.Unlock()
 
 	go c.sendHub()
 	c.wg.Add(1) // with sendHub we added a new listener
