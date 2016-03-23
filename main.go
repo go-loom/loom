@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	//"github.com/seanpont/assert"
+	_ "github.com/seanpont/assert"
 )
 
 func main() {
