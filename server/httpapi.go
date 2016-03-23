@@ -11,6 +11,10 @@ import (
 type Json map[string]interface{}
 
 func PushHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		ListHandler(w, r)
+		return
+	}
 	if r.Method != "POST" {
 		send(w, http.StatusMethodNotAllowed, Json{"error": "Not supported method"})
 		return
@@ -66,6 +70,40 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	msgJson := msg.JSON()
 	send(w, http.StatusCreated, msgJson)
 
+	return
+}
+
+func ListHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		send(w, http.StatusMethodNotAllowed, Json{"error": "Not supported method"})
+		return
+	}
+
+	queueName := mux.Vars(r)["queue"]
+
+	topic, ok := broker.Topics[queueName]
+	if !ok {
+		send(w, http.StatusNotFound, Json{"error": "the queue doesn't exist"})
+		return
+	}
+
+	queue, ok := topic.Queue.(*LQueue)
+	if !ok {
+		send(w, http.StatusInternalServerError, Json{"error": "topic.Queue is wrong"})
+		return
+	}
+	items := queue.List()
+
+	messages := make([]Json, 0, len(items))
+
+	for _, i := range items {
+		m, ok := i.(*Message)
+		if ok {
+			messages = append(messages, m.JSON())
+		}
+	}
+
+	send(w, http.StatusOK, Json{"queues": messages, "len": len(messages)})
 	return
 }
 

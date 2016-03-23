@@ -43,3 +43,11 @@ func (q *LQueue) Len() int {
 	defer q.mu.Unlock()
 	return q.list.Len()
 }
+
+func (q *LQueue) List() []interface{} {
+	ls := make([]interface{}, 0, q.list.Len())
+	for e := q.list.Front(); e != nil; e = e.Next() {
+		ls = append(ls, e.Value)
+	}
+	return ls
+}

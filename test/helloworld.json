@@ -11,7 +11,7 @@
     },
     {
       "name": "world",
-      "cmd": "echo world ",
+      "cmd": "sleep 20 ; echo world ",
       "when": "hello",
       "then": "world"
     },
