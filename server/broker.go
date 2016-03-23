@@ -164,6 +164,7 @@ func (b *Broker) HandleWorkerJobTasksState(r *kite.Request) (interface{}, error)
 	}
 
 	b.logger.Info("Received task results id:%v from worker:%v", msgIdStr, r.Client.ID)
+
 	return nil, nil
 }
 

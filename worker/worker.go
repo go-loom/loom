@@ -35,6 +35,14 @@ func NewWorker(serverURL, topic string, maxJobSize int, k *kite.Kite) *Worker {
 		ctx:        context.Background(), //TODO:
 	}
 
+	go func() {
+		tick := time.Tick(time.Minute * 10)
+		for {
+			<-tick
+			w.tellWorkerInfo()
+		}
+	}()
+
 	return w
 }
 
@@ -93,6 +101,8 @@ func (w *Worker) tellWorkerInfo() {
 	w.jobsMutex.RLock()
 	numJob = len(w.jobs)
 	w.jobsMutex.RUnlock()
+
+	w.logger.Info("current job: %v", numJob)
 
 	_, err := w.Client.Tell("loom.server:worker.info", numJob)
 	if err != nil {
@@ -182,6 +192,7 @@ func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
 		}
 
 		w.tellJobTaskStateChange(job, tasks)
+
 	})
 
 	//When job done.
