@@ -75,6 +75,7 @@ func (w *Worker) SetNumJob(numJob int) {
 	if w.dispatcher != nil {
 		w.dispatcher.NotifyWorkerState()
 	}
+
 }
 
 func (w *Worker) isNotOverMaxJobSize() bool {

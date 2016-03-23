@@ -100,9 +100,11 @@ func (b *Broker) HandleWorkerConnect(r *kite.Request) (interface{}, error) {
 	defer b.workersMutex.Unlock()
 
 	w := NewConnectedWorker(workerId, topicName, maxJobSize, r.Client)
+
 	b.Workers[workerId] = w
 
 	topic := b.Topic(topicName)
+
 	topic.Dispatcher.AddWorker(w)
 
 	b.logger.Info("Topic#%v/Worker#%v connected (maxJobSize:%v)", workerId, topicName, maxJobSize)
@@ -134,6 +136,7 @@ func (b *Broker) HandleWorkerJobDone(r *kite.Request) (interface{}, error) {
 }
 
 func (b *Broker) HandleWorkerJobTasksState(r *kite.Request) (interface{}, error) {
+
 	args := r.Args.MustSlice()
 	var tasks *map[string]interface{}
 	args[0].MustUnmarshal(&tasks)
@@ -182,20 +185,28 @@ func (b *Broker) WorkerDisconnect(c *kite.Client) {
 
 	//Msgs which is working on the worker (not finished jobs) should be enqueued again.
 	if w, ok := b.Workers[c.ID]; ok {
+
 		topic := b.Topic(w.TopicName)
+
 		topic.Dispatcher.RemoveWorker(w)
+
 		topic.PushPendingMsgsInWorker(w.ID)
 
 		delete(b.Workers, c.ID)
+
 		b.logger.Info("Worker %s disconneced", c.ID)
 	}
 }
 
+//TODO: It's not used
 func (b *Broker) HandleWorkerShutdown(r *kite.Request) (interface{}, error) {
 	w := b.getWorker(r.Client.ID)
+
 	if w != nil {
 		w.SetWorking(false)
+
 	}
+
 	b.logger.Info("Worker:%v is shutdowning.", r.Client.ID)
 	return nil, nil
 }

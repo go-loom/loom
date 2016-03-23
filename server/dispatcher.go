@@ -45,8 +45,11 @@ func (d *Dispatcher) AddWorker(w *Worker) {
 
 func (d *Dispatcher) RemoveWorker(w *Worker) {
 	d.workersMutex.Lock()
+
 	defer d.workersMutex.Unlock()
+
 	delete(d.workers, w.ID)
+
 	if len(d.workers) <= 0 && d.running == true {
 		d.quitChan <- struct{}{}
 		d.running = false
@@ -56,15 +59,14 @@ func (d *Dispatcher) RemoveWorker(w *Worker) {
 }
 
 func (d *Dispatcher) NotifyWorkerState() {
-	d.workersMutex.RLock()
-	defer d.workersMutex.RUnlock()
-
 	num := 0
+	d.workersMutex.RLock()
 	for _, w := range d.workers {
 		if w.Working() {
 			num++
 		}
 	}
+	d.workersMutex.RUnlock()
 	d.logger.Info("Notify num:%v running:%v", num, d.running)
 
 	if num == 0 && d.running == true {

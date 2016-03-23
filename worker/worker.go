@@ -124,13 +124,22 @@ func (w *Worker) tellJobDone(job *Job) error {
 }
 
 func (w *Worker) tellWorkerShutdown() error {
-	//TODO: Retry?
-	_, err := w.Client.Tell("loom.server:worker.shutdown")
-	if err != nil {
-		w.logger.Error("can't tell worker shutdown err:%v", err)
-		return err
-	}
 	return nil
+
+	/*
+		w.logger.Info("tellWorkerShutdown:1")
+		//TODO: Retry?
+		_, err := w.Client.Tell("loom.server:worker.shutdown")
+
+		w.logger.Info("tellWorkerShutdown:2")
+		if err != nil {
+			w.logger.Error("can't tell worker shutdown err:%v", err)
+			return err
+		}
+
+		w.logger.Info("tellWorkerShutdown:3")
+		return nil
+	*/
 }
 
 func (w *Worker) HandleMessagePop(r *kite.Request) (interface{}, error) {
