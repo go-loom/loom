@@ -2,6 +2,9 @@ package server
 
 import (
 	"github.com/boltdb/bolt"
+	"gopkg.in/loom.v1/log"
+
+	"time"
 )
 
 var (
@@ -14,8 +17,11 @@ type BoltStore struct {
 }
 
 type BoltMessageBucket struct {
-	name []byte
-	db   *bolt.DB
+	name           []byte
+	db             *bolt.DB
+	ttl            time.Duration
+	maxExpireItems int
+	logger         log.Logger
 }
 
 func NewBoltStore(path string) *BoltStore {
@@ -54,9 +60,13 @@ func (bs *BoltStore) Close() error {
 }
 
 func (bs *BoltStore) MessageBucket(name string) MessageBucket {
+	ttl, _ := time.ParseDuration("720h") // Default TTL TODO: MessageBucketWithTTL?
 	b := &BoltMessageBucket{
-		name: []byte(name),
-		db:   bs.db,
+		name:           []byte(name),
+		db:             bs.db,
+		ttl:            ttl,
+		maxExpireItems: 30,
+		logger:         log.New("MessageBucket"),
 	}
 	return b
 }
@@ -73,6 +83,8 @@ func (b *BoltMessageBucket) createBucket(tx *bolt.Tx) (*bolt.Bucket, error) {
 }
 
 func (b *BoltMessageBucket) Get(id MessageID) (*Message, error) {
+	b.expireMessages()
+
 	var m *Message
 	err := b.db.View(func(tx *bolt.Tx) error {
 		b := b.bucket(tx)
@@ -92,6 +104,8 @@ func (b *BoltMessageBucket) Get(id MessageID) (*Message, error) {
 }
 
 func (b *BoltMessageBucket) Put(msg *Message) error {
+	b.expireMessages()
+
 	err := b.db.Update(func(tx *bolt.Tx) error {
 		b, err := b.createBucket(tx)
 		if err != nil {
@@ -146,4 +160,46 @@ func (b *BoltMessageBucket) DelBucket() error {
 	})
 	return err
 
+}
+
+func (b *BoltMessageBucket) expireMessages() {
+	now := time.Now()
+
+	err := b.db.Update(func(tx *bolt.Tx) error {
+		i := 0
+		bucket := b.bucket(tx)
+		if bucket == nil {
+			return nil
+		}
+		c := bucket.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			i++
+			if i >= b.maxExpireItems {
+				return nil
+			}
+			if v == nil {
+				continue
+			}
+
+			m, err := DecodeMessage(v)
+			if err != nil {
+				b.logger.Error("err: %v", err)
+				return err
+			}
+			if m == nil {
+				continue
+			}
+
+			if now.Sub(m.Created) >= b.ttl {
+				b.logger.Info("Expire message: id:%s created:%v", string(m.ID[:]), m.Created)
+				bucket.Delete(k)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		b.logger.Error("expire: err: %v", err)
+	}
 }

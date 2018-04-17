@@ -12,13 +12,13 @@ RUN apt-get update
 RUN apt-get install -y build-essential mercurial git subversion wget curl
 
 # go 1.3 tarball
-RUN wget -qO- http://golang.org/dl/go1.5.3.linux-amd64.tar.gz | tar -C /usr/local -xzf -
+RUN wget -qO- http://golang.org/dl/go1.10.1.linux-amd64.tar.gz | tar -C /usr/local -xzf -
 
 COPY . /go/src/gopkg.in/loom.v1
 WORKDIR /go/src/gopkg.in/loom.v1
 
 ENV GOPATH /go/src/gopkg.in/loom.v1/Godeps/_workspace:$GOPATH
-RUN go install -v 
+RUN go install 
 
 ENV LOGXI "*=INF"
 
