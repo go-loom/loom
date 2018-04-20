@@ -3,7 +3,7 @@ package server
 import (
 	"encoding/json"
 	"github.com/gorilla/mux"
-	"gopkg.in/loom.v1/config"
+	"github.com/go-loom/loom/config"
 	"io/ioutil"
 	"net/http"
 )

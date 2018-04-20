@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/boltdb/bolt"
-	"gopkg.in/loom.v1/log"
+	"github.com/go-loom/loom/log"
 
 	"time"
 )

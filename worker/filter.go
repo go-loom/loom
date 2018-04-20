@@ -1,7 +1,7 @@
 package worker
 
 import (
-	c "gopkg.in/loom.v1/config"
+	c "github.com/go-loom/loom/config"
 	"strings"
 )
 

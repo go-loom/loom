@@ -2,10 +2,10 @@ package worker
 
 import (
 	"fmt"
+	"github.com/go-loom/loom/config"
+	"github.com/go-loom/loom/log"
 	"github.com/koding/kite"
 	"golang.org/x/net/context"
-	"gopkg.in/loom.v1/config"
-	"gopkg.in/loom.v1/log"
 	"sync"
 	"time"
 )
@@ -48,12 +48,11 @@ func NewWorker(serverURL, topic string, maxJobSize int, k *kite.Kite) *Worker {
 
 func (w *Worker) Init() error {
 	w.Client = w.kite.NewClient(w.ServerURL)
+	//w.Client.Reconnect = true
 
 	w.logger.Info("Worker ID: %v", w.ID)
 
-	connected, err := w.Client.DialForever()
-	<-connected
-	if err != nil {
+	if err := w.Connect(); err != nil {
 		return err
 	}
 
@@ -62,11 +61,31 @@ func (w *Worker) Init() error {
 		if err != nil {
 			return
 		}
+		w.logger.Info("worker: OnConnect")
+	})
+	w.Client.OnDisconnect(func() {
+		w.logger.Info("worker: Disconnect from: %v", w.ServerURL)
 	})
 
-	w.tellHelloToServer()
 	w.kite.HandleFunc("loom.worker:message.pop", w.HandleMessagePop)
+	w.tellHelloToServer()
 
+	return nil
+}
+
+func (w *Worker) Connect() error {
+	w.Client.Reconnect = true
+	w.logger.Info("worker: Connecting...")
+	connected, err := w.Client.DialForever()
+	<-connected
+	//w.Client.Close()
+
+	//err := w.Client.Dial()
+	if err != nil {
+		w.logger.Error("worker: Connect err: %v", err)
+		return err
+	}
+	w.logger.Info("worker: Connected %v", w.ServerURL)
 	return nil
 }
 

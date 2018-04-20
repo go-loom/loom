@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/gob"
-	"gopkg.in/loom.v1/config"
+	"github.com/go-loom/loom/config"
 	"time"
 )
 

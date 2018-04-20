@@ -2,8 +2,8 @@ package worker
 
 import (
 	"github.com/koding/kite"
-	"gopkg.in/loom.v1/expvar"
-	"gopkg.in/loom.v1/log"
+	"github.com/go-loom/loom/expvar"
+	"github.com/go-loom/loom/log"
 	"os"
 )
 

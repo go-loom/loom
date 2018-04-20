@@ -3,8 +3,8 @@ package server
 import (
 	"github.com/koding/kite"
 	"golang.org/x/net/context"
-	"gopkg.in/loom.v1/expvar"
-	"gopkg.in/loom.v1/log"
+	"github.com/go-loom/loom/expvar"
+	"github.com/go-loom/loom/log"
 	"os"
 )
 

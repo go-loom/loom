@@ -3,7 +3,7 @@ package worker
 import (
 	"github.com/seanpont/assert"
 	"golang.org/x/net/context"
-	c "gopkg.in/loom.v1/config"
+	c "github.com/go-loom/loom/config"
 	"testing"
 )
 

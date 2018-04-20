@@ -33,10 +33,6 @@
   branch = "master"
   name = "github.com/seanpont/assert"
 
-[[constraint]]
-  branch = "v1"
-  name = "gopkg.in/loom.v1"
-
 [prune]
   go-tests = true
   unused-packages = true

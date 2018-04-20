@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"golang.org/x/net/context"
-	"gopkg.in/loom.v1/log"
+	"github.com/go-loom/loom/log"
 	"net/http"
 	"time"
 )

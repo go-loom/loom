@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/codegangsta/cli"
-	"gopkg.in/loom.v1/server"
-	"gopkg.in/loom.v1/worker"
+	"github.com/go-loom/loom/server"
+	"github.com/go-loom/loom/worker"
 	"log"
 	"os"
 	"os/signal"

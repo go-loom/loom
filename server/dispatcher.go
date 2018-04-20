@@ -1,7 +1,7 @@
 package server
 
 import (
-	"gopkg.in/loom.v1/log"
+	"github.com/go-loom/loom/log"
 	"sync"
 )
 

@@ -2,7 +2,7 @@ package server
 
 import (
 	"github.com/koding/kite"
-	"gopkg.in/loom.v1/config"
+	"github.com/go-loom/loom/config"
 	"sync"
 	"testing"
 )
