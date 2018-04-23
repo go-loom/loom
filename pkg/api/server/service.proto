@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package loom.server;
+option go_package = "server";
+
+service Loom {
+    rpc SubscribeJob(WorkerInfo) returns (Job);
+    rpc ReportJob(Job) returns (EmptyResponse);
+    rpc ReportJobDone(Job) returns (EmptyResponse); 
+}
+
+message Job {
+    string id = 1;
+    string topic = 2;
+    string tasks = 3;
+}
+
+message WorkerInfo {
+    string id = 1;
+    string topic = 2;
+}
+
+
+message EmptyResponse {}

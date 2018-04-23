@@ -36,10 +36,11 @@ func NewWorker(serverURL, topic string, maxJobSize int, k *kite.Kite) *Worker {
 	}
 
 	go func() {
-		tick := time.Tick(time.Minute * 10)
+		tick := time.Tick(time.Minute * 1)
 		for {
 			<-tick
 			w.tellWorkerInfo()
+			w.logger.Debug("w.tellWorkerInfo")
 		}
 	}()
 
@@ -48,8 +49,6 @@ func NewWorker(serverURL, topic string, maxJobSize int, k *kite.Kite) *Worker {
 
 func (w *Worker) Init() error {
 	w.Client = w.kite.NewClient(w.ServerURL)
-	//w.Client.Reconnect = true
-
 	w.logger.Info("Worker ID: %v", w.ID)
 
 	if err := w.Connect(); err != nil {
