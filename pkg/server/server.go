@@ -1,10 +1,13 @@
 package server
 
 import (
-	"github.com/koding/kite"
-	"golang.org/x/net/context"
 	"github.com/go-loom/loom/expvar"
 	"github.com/go-loom/loom/log"
+	pb "github.com/go-loom/loom/pkg/api/server"
+	"github.com/twitchtv/twirp"
+	"golang.org/x/net/context"
+
+	"net/http"
 	"os"
 )
 

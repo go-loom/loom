@@ -23,6 +23,37 @@
   revision = "668b54691aeab72f51c3ab9e0f6262521f201af3"
 
 [[projects]]
+  name = "github.com/go-kit/kit"
+  packages = [
+    "log",
+    "log/level"
+  ]
+  revision = "ca4112baa34cb55091301bdc13b1420a122b1b9e"
+  version = "v0.7.0"
+
+[[projects]]
+  name = "github.com/go-logfmt/logfmt"
+  packages = ["."]
+  revision = "390ab7935ee28ec6b286364bba9b4dd6410cb3d5"
+  version = "v0.3.0"
+
+[[projects]]
+  name = "github.com/go-stack/stack"
+  packages = ["."]
+  revision = "259ab82a6cad3992b4e21ff5cac294ccb06474bc"
+  version = "v1.7.0"
+
+[[projects]]
+  name = "github.com/golang/protobuf"
+  packages = [
+    "jsonpb",
+    "proto",
+    "ptypes/struct"
+  ]
+  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/gorilla/context"
   packages = ["."]
   revision = "1ea25387ff6f684839d82767c1733ff4d4d15d0a"
@@ -68,6 +99,12 @@
   revision = "bd69e57f3b8c014892d8508cbd83972fed0df36d"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/kr/logfmt"
+  packages = ["."]
+  revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
+
+[[projects]]
   name = "github.com/looplab/fsm"
   packages = ["."]
   revision = "406628531e6e20c817c9ff2260f60b3284b5966a"
@@ -83,6 +120,12 @@
   revision = "d2dd0262208475919e1a362f675cfc0e7c10e905"
 
 [[projects]]
+  name = "github.com/oklog/run"
+  packages = ["."]
+  revision = "4dadeb3030eda0273a12382bb2348ffc7c9d1a39"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/satori/go.uuid"
   packages = ["."]
   revision = "e673fdd4dea8a7334adbbe7f57b7e4b00bdc5502"
@@ -92,6 +135,16 @@
   name = "github.com/seanpont/assert"
   packages = ["."]
   revision = "4b06649e62f72436465fa536df365be748192ba3"
+
+[[projects]]
+  name = "github.com/twitchtv/twirp"
+  packages = [
+    ".",
+    "ctxsetters",
+    "internal/contextkeys"
+  ]
+  revision = "1e149ba374383a4b74e836f6c9e54fede6b09c61"
+  version = "v5.3.0"
 
 [[projects]]
   name = "golang.org/x/crypto"
@@ -111,6 +164,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "0381c142e5ba850fd85320dd8e53d429f2e4cbf2ccaf2a04e970c084636df0f1"
+  inputs-digest = "40e5e27728f099c516405abd038ac64dca654afb672368ee2d94303562e8d1e2"
   solver-name = "gps-cdcl"
   solver-version = 1

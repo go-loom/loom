@@ -1,10 +1,16 @@
 package server
 
 import (
-	"github.com/koding/kite"
-	"golang.org/x/net/context"
-	"github.com/go-loom/loom/config"
-	"github.com/go-loom/loom/log"
+	"github.com/go-loom/loom/pkg/config"
+	"github.com/go-loom/loom/pkg/log"
+	"github.com/go-loom/loom/pkg/rpc/pb"
+
+	kitlog "github.com/go-kit/kit/log"
+
+	//	"github.com/koding/kite"
+	//	"golang.org/x/net/context"
+
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -26,7 +32,7 @@ type Broker struct {
 	topicQuitC   chan struct{}
 	quitC        chan struct{}
 	wg           sync.WaitGroup
-	logger       log.Logger
+	logger       kitlog.Logger
 }
 
 func NewBroker(ctx context.Context, dbpath string, k *kite.Kite) *Broker {
@@ -41,7 +47,7 @@ func NewBroker(ctx context.Context, dbpath string, k *kite.Kite) *Broker {
 		topicQuitC: make(chan struct{}),
 		quitC:      make(chan struct{}),
 		kite:       k,
-		logger:     log.New("Broker"),
+		logger:     log.With("m", "Broker"),
 	}
 
 	go b.recvTopicQuit()
@@ -61,31 +67,46 @@ func (b *Broker) Init() error {
 	pattern := filepath.Join(b.DBPath, "*.boltdb")
 	dbfilepaths, err := filepath.Glob(pattern)
 	if err != nil {
-		b.logger.Error("Wrong dbpath err: %v", err)
+		log.Error(b.logger).Log("msg", "Wrong dbpath", "err", err)
 		return err
 	}
 
 	for _, p := range dbfilepaths {
 		topicName := strings.Replace(filepath.Base(p), filepath.Ext(p), "", 1)
 		b.Topic(topicName)
-		b.logger.Info("load topic db topic: %v db: %v", topicName, p)
+		log.Info(b.logger).Log("msg", "load topic db ", "topic", topicName, "db", p)
 	}
 
 	//Register Worker RPC
-	b.kite.HandleFunc("loom.server:worker.connect", b.HandleWorkerConnect)
-	b.kite.HandleFunc("loom.server:worker.job.tasks.state", b.HandleWorkerJobTasksState)
-	b.kite.HandleFunc("loom.server:worker.job.done", b.HandleWorkerJobDone)
-	b.kite.HandleFunc("loom.server:worker.shutdown", b.HandleWorkerShutdown)
-	b.kite.HandleFunc("loom.server:worker.info", b.HandleWorkerInfo)
-	b.kite.OnDisconnect(b.WorkerDisconnect)
+	/*
+		b.kite.HandleFunc("loom.server:worker.connect", b.HandleWorkerConnect)
+		b.kite.HandleFunc("loom.server:worker.job.tasks.state", b.HandleWorkerJobTasksState)
+		b.kite.HandleFunc("loom.server:worker.job.done", b.HandleWorkerJobDone)
+		b.kite.HandleFunc("loom.server:worker.shutdown", b.HandleWorkerShutdown)
+		b.kite.HandleFunc("loom.server:worker.info", b.HandleWorkerInfo)
+		b.kite.OnDisconnect(b.WorkerDisconnect)
+	*/
 
 	return nil
 }
 
 func (b *Broker) Done() {
 	b.wg.Wait()
-	b.logger.Info("Closing broker..")
+	log.Info(b.logger).Log("msg", "closing broker...")
 	return
+}
+
+// twirp rpc interface
+func (b *Broker) SubscribeJob(ctx context.Context, workerInfo *pb.WorkerInfo) (job *pb.Job, err error) {
+	return nil, nil
+}
+
+func (b *Broker) ReportJob(ctx context.Context, job *pb.Job) (*pb.EmptyResponse, error) {
+	return nil, nil
+}
+
+func (b *Broker) ReportJobDone(ctx context.Context, job *pb.Job) (*pb.EmptyResponse, error) {
+	return nil, nil
 }
 
 func (b *Broker) HandleWorkerConnect(r *kite.Request) (interface{}, error) {

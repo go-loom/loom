@@ -1,7 +1,7 @@
-package rpc
+package server
 
 import (
-	pb "github.com/go-loom/loom/pkg/api/server"
+	"github.com/go-loom/loom/pkg/rpc/pb"
 
 	"context"
 )
