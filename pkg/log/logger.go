@@ -13,7 +13,7 @@ var Logger log.Logger
 const loomLogLevel = "LOOM_LOG_LEVEL"
 
 func init() {
-	_logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
+	Logger = log.NewLogfmtLogger(log.NewSyncWriter(os.Stderr))
 	Logger = log.With(Logger, "ts", log.DefaultTimestampUTC)
 
 	logLevel := level.AllowInfo()

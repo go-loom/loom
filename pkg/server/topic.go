@@ -1,10 +1,13 @@
 package server
 
 import (
+	"github.com/go-loom/loom/pkg/log"
+
+	kitlog "github.com/go-kit/kit/log"
+
 	"bytes"
+	"context"
 	"encoding/json"
-	"golang.org/x/net/context"
-	"github.com/go-loom/loom/log"
 	"net/http"
 	"time"
 )
@@ -13,31 +16,28 @@ type Topic struct {
 	ctx                context.Context
 	Name               string
 	Queue              Queue
-	Dispatcher         *Dispatcher
 	retryCheckDuration time.Duration
 	waitingCh          chan interface{}
 	store              Store
 	msgBucket          MessageBucket
 	pendingMsgBucket   MessageBucket
-	logger             log.Logger
+	logger             kitlog.Logger
 	quitC              chan struct{}
 	retryCheckQuitC    chan struct{}
 }
 
 func NewTopic(ctx context.Context, name string, retryCheckDuration time.Duration, store Store) *Topic {
-	dispatcher := NewDispatcher(name, store)
 
 	topic := &Topic{
 		ctx:                ctx,
 		Name:               name,
 		Queue:              NewLQueue(),
-		Dispatcher:         dispatcher,
 		retryCheckDuration: retryCheckDuration,
 		waitingCh:          make(chan interface{}),
 		store:              store,
 		msgBucket:          store.MessageBucket(MessageBucketName),
 		pendingMsgBucket:   store.MessageBucket(MessagePendingBucketName),
-		logger:             log.New("Topic:" + name),
+		logger:             log.With(log.Logger, "topic", name),
 		quitC:              ctx.Value("quitC").(chan struct{}),
 		retryCheckQuitC:    make(chan struct{}),
 	}
@@ -58,9 +58,6 @@ func (t *Topic) Init() error {
 		return nil
 	})
 
-	go t.msgPopDispatch()
-	go t.msgPushDispatch()
-
 	return err
 }
 
@@ -70,7 +67,7 @@ func (t *Topic) PushMessage(msg *Message) {
 	t.pendingMsgBucket.Put(msg)
 	t.push(msg)
 
-	t.logger.Info("Pushed message id:%s", string(msg.ID[:]))
+	log.Info(t.logger).Log("msg", "Pushed message", "id", string(msg.ID[:]))
 }
 
 func (t *Topic) FinishMessage(id MessageID) error {
@@ -94,7 +91,7 @@ func (t *Topic) FinishMessage(id MessageID) error {
 		url := msg.Job.FinishReportURL
 		msgJson, err := json.Marshal(msg.JSON())
 		if err != nil {
-			t.logger.Error("FinishReportURL json err:%v", err)
+			log.Error(t.logger).Log("msg", "FinishReportURL json", "err", err)
 			return err
 		}
 
@@ -103,16 +100,17 @@ func (t *Topic) FinishMessage(id MessageID) error {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			t.logger.Error("FinishReportURL request err:%v", err)
+			log.Error(t.logger).Log("msg", "FinishReportURL request", "err", err)
 			return err
 		}
 		defer resp.Body.Close()
 	}
 
-	t.logger.Info("Finished message id:%v", string(msg.ID.Bytes()))
+	log.Info(t.logger).Log("msg", "Finished message", "id", string(msg.ID.Bytes()))
 	return nil
 }
 
+/*
 func (t *Topic) PushPendingMsgsInWorker(workerId string) {
 	pmb := t.store.MessageBucket(WorkerPerMessageBucketNamePrefix + workerId)
 
@@ -143,54 +141,21 @@ func (t *Topic) PushPendingMsgsInWorker(workerId string) {
 	t.logger.Info("Pushed pending msgs:%v", num)
 	return
 }
+*/
 
 func (t *Topic) push(msg *Message) {
-	select {
-	case t.waitingCh <- msg:
-	default:
-		t.Queue.Push(msg)
-	}
+	t.Queue.Push(msg)
+}
+
+func (t *Topic) PopMessage() *Message {
+	return t.pop()
 }
 
 func (t *Topic) pop() (msg *Message) {
-
 	if item := t.Queue.Pop(); item != nil {
 		msg = item.(*Message)
-	} else {
-		item, ok := <-t.waitingCh
-		if !ok {
-			return nil
-		}
-		msg = item.(*Message)
 	}
-
 	return
-
-}
-
-func (t *Topic) msgPopDispatch() {
-	for {
-		msg := t.pop()
-		if msg == nil {
-			break
-		}
-		t.logger.Debug("S:Pop job from queue id:%v", string(msg.ID[:]))
-		t.Dispatcher.msgPopChan <- msg
-		t.logger.Debug("E:Pop job from queue id:%v", string(msg.ID[:]))
-	}
-}
-
-func (t *Topic) msgPushDispatch() {
-	for {
-		select {
-		case msg := <-t.Dispatcher.msgPushChan:
-			t.logger.Debug("dispatcher.push")
-			t.PushMessage(msg)
-			if t.logger.IsDebug() {
-				t.logger.Debug("From dispatcher msg push id:%v", string(msg.ID[:]))
-			}
-		}
-	}
 }
 
 func (t *Topic) waitDone() {
@@ -200,7 +165,7 @@ func (t *Topic) waitDone() {
 	t.retryCheckQuitC <- struct{}{}
 	t.quitC <- struct{}{}
 
-	t.logger.Info("Closing topic")
+	log.Info(t.logger).Log("msg", "Closing topic")
 }
 
 func (t *Topic) retryTick() {
@@ -214,7 +179,7 @@ func (t *Topic) retryTick() {
 		}
 	}
 
-	t.logger.Info("Done retry checking")
+	log.Info(t.logger).Log("msg", "Done retry checking...")
 }
 
 func (t *Topic) checkRetryJobs() {
@@ -224,7 +189,7 @@ func (t *Topic) checkRetryJobs() {
 			timeout, err := retry.GetTimeout()
 
 			if err != nil {
-				t.logger.Error("job.Retry timeout err:%v", err)
+				log.Error(t.logger).Log("msg", "job.Retry timeout", "err", err)
 				return nil
 			}
 
@@ -233,15 +198,15 @@ func (t *Topic) checkRetryJobs() {
 					m.State = MSG_FAILURE
 					err := t.msgBucket.Put(m)
 					if err != nil {
-						t.logger.Error("t.msgBucket.Put err:%v", err)
+						log.Error(t.logger).Log("msg", "t.msgBucket.Put", "err", err)
 						return nil
 					}
 					err = t.pendingMsgBucket.Del(m.ID)
 					if err != nil {
-						t.logger.Error("t.pendingMsgBucket err:%v", err)
+						log.Error(t.logger).Log("msg", "t.pendingMsgBucket", "err", err)
 						return nil
 					}
-					t.logger.Error("Taken maxretry count id:%v num:%v", string(m.ID[:]), retry.Number)
+					log.Error(t.logger).Log("msg", "Taken maxretry count", "id", string(m.ID[:]), "num", retry.Number)
 
 				} else if retry.NumRetry < retry.Number {
 
@@ -263,7 +228,7 @@ func (t *Topic) checkRetryJobs() {
 						t.pendingMsgBucket.Put(m)
 						t.push(m)
 
-						t.logger.Info("This message is timeout and is queueing again id:%s", m.ID[:])
+						log.Info(t.logger).Log("msg", "This message is timeout and queueing againg", "id", m.ID[:])
 					}
 				}
 			}

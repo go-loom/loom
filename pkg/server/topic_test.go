@@ -2,8 +2,8 @@ package server
 
 import (
 	"fmt"
+	"github.com/go-loom/loom/pkg/config"
 	"golang.org/x/net/context"
-	"github.com/go-loom/loom/config"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"

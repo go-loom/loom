@@ -7,10 +7,9 @@ import (
 
 	kitlog "github.com/go-kit/kit/log"
 
-	//	"github.com/koding/kite"
-	//	"golang.org/x/net/context"
-
 	"context"
+	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -19,35 +18,41 @@ import (
 	"time"
 )
 
+var (
+	ErrTopicNotFound = errors.New("Topic not found")
+	ErrMsgNotFound   = errors.New("Message not found")
+)
+
 type Broker struct {
-	ctx          context.Context
-	ID           int64
-	DBPath       string
-	Topics       map[string]*Topic
-	topicMutex   sync.Mutex
-	Workers      map[string]*Worker
-	workersMutex sync.RWMutex
-	kite         *kite.Kite
-	idChan       chan MessageID
-	topicQuitC   chan struct{}
-	quitC        chan struct{}
-	wg           sync.WaitGroup
-	logger       kitlog.Logger
+	ctx        context.Context
+	ID         int64
+	DBPath     string
+	Topics     map[string]*Topic
+	topicMutex sync.Mutex
+
+	action chan func()
+
+	idChan     chan MessageID
+	topicQuitC chan struct{}
+
+	quitC chan struct{}
+	wg    sync.WaitGroup
+
+	logger kitlog.Logger
 }
 
-func NewBroker(ctx context.Context, dbpath string, k *kite.Kite) *Broker {
+func NewBroker(ctx context.Context, dbpath string) *Broker {
 
 	b := &Broker{
 		ctx:        ctx,
 		ID:         1,
 		DBPath:     dbpath,
 		Topics:     make(map[string]*Topic),
-		Workers:    make(map[string]*Worker),
+		action:     make(chan func()),
 		idChan:     make(chan MessageID, 4096), // Buffer
 		topicQuitC: make(chan struct{}),
 		quitC:      make(chan struct{}),
-		kite:       k,
-		logger:     log.With("m", "Broker"),
+		logger:     log.With(log.Logger),
 	}
 
 	go b.recvTopicQuit()
@@ -77,16 +82,6 @@ func (b *Broker) Init() error {
 		log.Info(b.logger).Log("msg", "load topic db ", "topic", topicName, "db", p)
 	}
 
-	//Register Worker RPC
-	/*
-		b.kite.HandleFunc("loom.server:worker.connect", b.HandleWorkerConnect)
-		b.kite.HandleFunc("loom.server:worker.job.tasks.state", b.HandleWorkerJobTasksState)
-		b.kite.HandleFunc("loom.server:worker.job.done", b.HandleWorkerJobDone)
-		b.kite.HandleFunc("loom.server:worker.shutdown", b.HandleWorkerShutdown)
-		b.kite.HandleFunc("loom.server:worker.info", b.HandleWorkerInfo)
-		b.kite.OnDisconnect(b.WorkerDisconnect)
-	*/
-
 	return nil
 }
 
@@ -97,150 +92,107 @@ func (b *Broker) Done() {
 }
 
 // twirp rpc interface
-func (b *Broker) SubscribeJob(ctx context.Context, workerInfo *pb.WorkerInfo) (job *pb.Job, err error) {
-	return nil, nil
-}
+func (b *Broker) SubscribeJob(ctx context.Context, req *pb.SubscribeJobRequest) (res *pb.SubscribeJobResponse, err error) {
 
-func (b *Broker) ReportJob(ctx context.Context, job *pb.Job) (*pb.EmptyResponse, error) {
-	return nil, nil
-}
+	var (
+		notFound  = make(chan struct{})
+		otherErr  = make(chan error)
+		newJobMsg = make(chan *Message)
+	)
 
-func (b *Broker) ReportJobDone(ctx context.Context, job *pb.Job) (*pb.EmptyResponse, error) {
-	return nil, nil
-}
+	topicName := req.TopicName
+	workerID := req.WorkerId
 
-func (b *Broker) HandleWorkerConnect(r *kite.Request) (interface{}, error) {
-	args := r.Args.MustSlice()
+	l := log.With(b.logger, "f", "SubscribeJob", "worker", workerID, "topic", topicName)
 
-	workerId := args[0].MustString()
-	topicName := args[1].MustString()
-	maxJobSize := int(args[2].MustFloat64())
-	r.Client.ID = workerId
-
-	b.workersMutex.Lock()
-	defer b.workersMutex.Unlock()
-
-	w := NewConnectedWorker(workerId, topicName, maxJobSize, r.Client)
-
-	b.Workers[workerId] = w
-
-	topic := b.Topic(topicName)
-
-	topic.Dispatcher.AddWorker(w)
-
-	b.logger.Info("Topic#%v/Worker#%v connected (maxJobSize:%v)", workerId, topicName, maxJobSize)
-	return true, nil
-}
-
-func (b *Broker) HandleWorkerJobDone(r *kite.Request) (interface{}, error) {
-	args := r.Args.MustSlice()
-	msgIdStr := args[0].MustString()
-	topicName := args[1].MustString()
-
-	topic := b.Topic(topicName)
-	var msgId MessageID
-	copy(msgId[:], []byte(msgIdStr))
-
-	err := topic.FinishMessage(msgId)
-	if err != nil {
-		b.logger.Error("Finish message messageId:%v err:%v", msgIdStr, err)
+	b.action <- func() {
+		topic := b.Topic(topicName)
+		if topic == nil {
+			log.Error(l).Log("err", ErrTopicNotFound)
+			otherErr <- ErrTopicNotFound
+			return
+		}
+		msg := topic.PopMessage()
+		if msg == nil {
+			notFound <- struct{}{}
+			return
+		}
+		newJobMsg <- msg
 	}
 
-	pmb := topic.store.MessageBucket(WorkerPerMessageBucketNamePrefix + r.Client.ID)
-	err = pmb.Del(msgId)
-	if err != nil {
-		b.logger.Error("Remove pending msg worker:%v messageId:%v err:%v", r.Client.ID, msgIdStr, err)
+	select {
+	case <-notFound:
+		res.JobStatus = pb.SubscribeJobResponse_NoJob
+	case err = <-otherErr:
+	case msg := <-newJobMsg:
+		res.JobStatus = pb.SubscribeJobResponse_NewJob
+		res.JobId = msg.ID.Bytes()
+		b, _err := json.Marshal(msg.JSON())
+		if _err != nil {
+			err = _err
+			log.Error(l).Log("err", err)
+			return
+		}
+		res.JobMsg = b
+		log.Info(l).Log("newJob", res.JobId)
 	}
 
-	b.logger.Info("Finish message id:%v from worker:%v", msgIdStr, r.Client.ID)
-	return nil, nil
+	return
 }
 
-func (b *Broker) HandleWorkerJobTasksState(r *kite.Request) (interface{}, error) {
+func (b *Broker) ReportJob(ctx context.Context, req *pb.ReportJobRequest) (res *pb.ReportJobResponse, err error) {
+	jobID := req.JobId
+	workerID := req.WorkerId
+	topicName := req.TopicName
+	jobMsg := req.JobMsg
 
-	args := r.Args.MustSlice()
-	var tasks *map[string]interface{}
-	args[0].MustUnmarshal(&tasks)
-	msgIdStr := args[1].MustString()
-	topicName := args[2].MustString()
+	l := log.With(b.logger, "f", "ReportJob", "worker", workerID, "topic", topicName, "job", jobID)
 
 	topic := b.Topic(topicName)
-	msgId := GetMessageID([]byte(msgIdStr))
-
-	msg, err := topic.msgBucket.Get(msgId)
+	msgID := GetMessageID(jobID)
+	msg, err := topic.msgBucket.Get(msgID)
 	msg.State = MSG_RECEIVED
 	if err != nil {
-		b.logger.Error("Save job task results id:%v err:%v", msgIdStr, err)
-		return nil, nil
+		log.Error(l).Log("err", err)
+		return
 	}
 	if msg == nil {
-		b.logger.Error("Save job task results id:%v err:%v", msgIdStr, "msg is empty")
-		return nil, nil
+		log.Error(l).Log("err", ErrMsgNotFound)
 	}
 
-	msg.SetResults(r.Client.ID, *tasks)
+	var tasks *map[string]interface{}
+	err = json.Unmarshal(jobMsg, tasks)
+	if err != nil {
+		log.Error(l).Log("err", err)
+	}
+
+	msg.SetResults(workerID, *tasks)
 	err = topic.msgBucket.Put(msg)
 	if err != nil {
-		b.logger.Error("Save job task results id:%v err: %v", msgIdStr, err)
+		log.Error(l).Log("err", err)
 	}
 
-	b.logger.Info("Received task results id:%v from worker:%v", msgIdStr, r.Client.ID)
+	log.Info(l).Log("msg", "Received task results")
 
-	return nil, nil
+	return
 }
 
-func (b *Broker) HandleWorkerInfo(r *kite.Request) (interface{}, error) {
-	args := r.Args.MustSlice()
-	numJob := int(args[0].MustFloat64())
-	workerId := r.Client.ID
+func (b *Broker) ReportJobDone(ctx context.Context, req *pb.ReportJobDoneRequest) (res *pb.ReportJobDoneResponse, err error) {
+	jobID := req.JobId
+	workerID := req.WorkerId
+	topicName := req.TopicName
+	l := log.With(b.logger, "f", "ReportJobDone", "worker", workerID, "topic", topicName, "job", string(jobID))
 
-	w := b.getWorker(workerId)
-	w.SetNumJob(numJob)
+	topic := b.Topic(topicName)
 
-	b.logger.Info("Received worker info worker:%v jobs:%v", workerId, numJob)
-	return nil, nil
-}
-
-func (b *Broker) WorkerDisconnect(c *kite.Client) {
-	b.workersMutex.Lock()
-	defer b.workersMutex.Unlock()
-
-	//Msgs which is working on the worker (not finished jobs) should be enqueued again.
-	if w, ok := b.Workers[c.ID]; ok {
-
-		topic := b.Topic(w.TopicName)
-
-		topic.Dispatcher.RemoveWorker(w)
-
-		topic.PushPendingMsgsInWorker(w.ID)
-
-		delete(b.Workers, c.ID)
-
-		b.logger.Info("Worker %s disconneced", c.ID)
-	}
-}
-
-//TODO: It's not used
-func (b *Broker) HandleWorkerShutdown(r *kite.Request) (interface{}, error) {
-	w := b.getWorker(r.Client.ID)
-
-	if w != nil {
-		w.SetWorking(false)
-
+	err = topic.FinishMessage(GetMessageID(jobID))
+	if err != nil {
+		log.Error(l).Log("err", err)
+		return
 	}
 
-	b.logger.Info("Worker:%v is shutdowning.", r.Client.ID)
-	return nil, nil
-}
-
-func (b *Broker) getWorker(workerId string) *Worker {
-	b.workersMutex.RLock()
-	defer b.workersMutex.RUnlock()
-
-	if w, ok := b.Workers[workerId]; ok {
-		return w
-	}
-	return nil
+	l.Log()
+	return
 }
 
 func (b *Broker) Topic(name string) *Topic {
@@ -260,7 +212,7 @@ func (b *Broker) Topic(name string) *Topic {
 	t := NewTopic(topicCtx, name, pendingTimeout, store)
 	err := t.Init()
 	if err != nil {
-		b.logger.Error("Load topic %v db err: %v", name, err)
+		log.Error(b.logger).Log("msg", "load topic", "topic", name, "err", err)
 	}
 
 	b.Topics[name] = t
@@ -319,7 +271,7 @@ func (b *Broker) idPump() {
 				//only print the error once/second
 				//TODO:
 				lastError = now
-				b.logger.Error("id pump err: %s", err)
+				log.Error(b.logger).Log("msg", "id pump", "err", err)
 
 			}
 			runtime.Gosched()
@@ -334,5 +286,5 @@ func (b *Broker) idPump() {
 		}
 	}
 
-	b.logger.Info("End idPump")
+	log.Debug(b.logger).Log("msg", "end idpump")
 }

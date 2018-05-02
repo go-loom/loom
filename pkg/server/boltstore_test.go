@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"github.com/koding/kite"
 	"golang.org/x/net/context"
 	"io"
 	"os"
@@ -62,8 +61,7 @@ func TestBoltStoreExpireMessage(t *testing.T) {
 
 func TestBoltStorePut(t *testing.T) {
 	ctx := context.Background()
-	k := kite.New("test", "0.0.1")
-	b := NewBroker(ctx, "/tmp/test", k)
+	b := NewBroker(ctx, "/tmp/test")
 	b.Init()
 
 	s, err := NewTopicStore("bolt", b.DBPath, "test")

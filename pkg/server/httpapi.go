@@ -2,17 +2,21 @@ package server
 
 import (
 	"encoding/json"
+	"github.com/go-loom/loom/pkg/config"
 	"github.com/gorilla/mux"
-	"github.com/go-loom/loom/config"
 	"io/ioutil"
 	"net/http"
 )
 
 type Json map[string]interface{}
 
-func PushHandler(w http.ResponseWriter, r *http.Request) {
+type httpApiHandler struct {
+	broker *Broker
+}
+
+func (h *httpApiHandler) PushHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		ListHandler(w, r)
+		h.ListHandler(w, r)
 		return
 	}
 	if r.Method != "POST" {
@@ -34,7 +38,7 @@ func PushHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg, err := broker.PushMessage(queueName, &job)
+	msg, err := h.broker.PushMessage(queueName, &job)
 	if err != nil {
 		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
 		return
@@ -45,7 +49,7 @@ func PushHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func GetHandler(w http.ResponseWriter, r *http.Request) {
+func (h *httpApiHandler) GetHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		send(w, http.StatusMethodNotAllowed, Json{"error": "Not supported method"})
 		return
@@ -57,7 +61,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	var msgId MessageID
 	copy(msgId[:], id)
 
-	msg, err := broker.GetMessage(queueName, msgId)
+	msg, err := h.broker.GetMessage(queueName, msgId)
 	if err != nil {
 		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
 		return
@@ -73,7 +77,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func ListHandler(w http.ResponseWriter, r *http.Request) {
+func (h *httpApiHandler) ListHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		send(w, http.StatusMethodNotAllowed, Json{"error": "Not supported method"})
 		return
@@ -81,7 +85,7 @@ func ListHandler(w http.ResponseWriter, r *http.Request) {
 
 	queueName := mux.Vars(r)["queue"]
 
-	topic, ok := broker.Topics[queueName]
+	topic, ok := h.broker.Topics[queueName]
 	if !ok {
 		send(w, http.StatusNotFound, Json{"error": "the queue doesn't exist"})
 		return
@@ -108,7 +112,7 @@ func ListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-func DeleteHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+func (h *httpApiHandler) DeleteHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	if r.Method != "DELETE" {
 		send(w, http.StatusMethodNotAllowed, Json{"error": "Not supported method"})
 		return
@@ -120,7 +124,7 @@ func DeleteHandler(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 	var msgId MessageID
 	copy(msgId[:], id)
 
-	err := broker.FinishMessage(queueName, msgId)
+	err := h.broker.FinishMessage(queueName, msgId)
 	if err != nil {
 		send(w, http.StatusInternalServerError, Json{"error": err.Error()})
 		return

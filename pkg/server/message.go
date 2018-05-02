@@ -3,7 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/gob"
-	"github.com/go-loom/loom/config"
+	"github.com/go-loom/loom/pkg/config"
 	"time"
 )
 
@@ -53,6 +53,10 @@ type Message struct {
 
 func (id MessageID) Bytes() []byte {
 	return id[:]
+}
+
+func (id MessageID) String() string {
+	return string(id[:])
 }
 
 func GetMessageID(v []byte) MessageID {

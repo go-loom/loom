@@ -4,21 +4,41 @@ package loom.server;
 option go_package = "pb";
 
 service Loom {
-    rpc SubscribeJob(WorkerInfo) returns (Job);
-    rpc ReportJob(Job) returns (EmptyResponse);
-    rpc ReportJobDone(Job) returns (EmptyResponse); 
+    rpc SubscribeJob(SubscribeJobRequest) returns (SubscribeJobResponse);
+    rpc ReportJob(ReportJobRequest) returns (ReportJobResponse);
+    rpc ReportJobDone(ReportJobDoneRequest) returns (ReportJobDoneResponse); 
 }
 
-message Job {
-    string id = 1;
-    string topic = 2;
-    string tasks = 3;
+message SubscribeJobRequest {
+    string worker_id = 1;
+    string topic_name = 2;
 }
 
-message WorkerInfo {
-    string id = 1;
-    string topic = 2;
+message SubscribeJobResponse {
+    enum Status {
+        NoJob = 0;
+        NewJob = 1;
+    }
+
+    bytes job_id = 1;
+    bytes job_msg = 2;
+    Status job_status = 3;
 }
 
+message ReportJobRequest {
+    bytes job_id = 1;
+    string worker_id = 2;
+    string topic_name = 3;
+    bytes job_msg = 4;
+}
 
-message EmptyResponse {}
+message ReportJobResponse{}
+
+message ReportJobDoneRequest {
+    bytes job_id = 1;
+    string worker_id = 2;
+    string topic_name = 3;
+}
+
+message ReportJobDoneResponse {}
+

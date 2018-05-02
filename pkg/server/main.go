@@ -10,6 +10,7 @@ import (
 
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 )
 
@@ -36,14 +37,18 @@ func Main(port int, dbpath string) error {
 			twirpHandler := pb.NewLoomServer(broker, nil)
 			r.Handle(pb.LoomPathPrefix, twirpHandler)
 
-			r.HandleFunc("/v1/queues/{queue}", PushHandler)
-			r.HandleFunc("/v1/queues/{queue}/{id}", GetHandler)
+			httpApiHandler := &httpApiHandler{
+				broker: broker,
+			}
+
+			r.HandleFunc("/v1/queues/{queue}", httpApiHandler.PushHandler)
+			r.HandleFunc("/v1/queues/{queue}/{id}", httpApiHandler.GetHandler)
 			r.HandleFunc("/debug/vars", expvar.ExpvarHandler)
 
 			return http.Serve(apiListener, r)
 
 		}, func(error) {
-			rpcListener.Close()
+			apiListener.Close()
 			cancel()
 			broker.Done()
 		})

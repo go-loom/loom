@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"syscall"
 )
 
 func Interrupt(cancel <-chan struct{}) error {
-	c := make(chan os.Singal, 1)
+	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	select {
 	case sig := <-c:
