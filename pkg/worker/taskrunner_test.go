@@ -1,11 +1,13 @@
 package worker
 
 import (
-	"bytes"
-	"fmt"
+	"github.com/go-loom/loom/pkg/config"
+
 	"github.com/seanpont/assert"
-	"golang.org/x/net/context"
-	"github.com/go-loom/loom/config"
+
+	"bytes"
+	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"

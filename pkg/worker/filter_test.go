@@ -1,8 +1,9 @@
 package worker
 
 import (
+	"github.com/go-loom/loom/pkg/config"
 	"github.com/seanpont/assert"
-	"github.com/go-loom/loom/config"
+
 	"testing"
 )
 

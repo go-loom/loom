@@ -1,12 +1,15 @@
 package worker
 
 import (
-	"bytes"
-	"errors"
+	"github.com/go-loom/loom/pkg/config"
+	"github.com/go-loom/loom/pkg/log"
+
+	kitlog "github.com/go-kit/kit/log"
 	"github.com/looplab/fsm"
 	"github.com/matryer/try"
-	"github.com/go-loom/loom/config"
-	"github.com/go-loom/loom/log"
+
+	"bytes"
+	"errors"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
@@ -49,7 +52,7 @@ type TaskRunner struct {
 	fsm         *fsm.FSM
 	eventC      chan string
 	stateC      chan string
-	logger      log.Logger
+	logger      kitlog.Logger
 	startTime   time.Time
 	endTime     time.Time
 	templateCtx map[string]interface{}
@@ -62,7 +65,7 @@ func NewTaskRunner(job *Job, task *config.Task, templateCtx map[string]interface
 		eventC:      make(chan string),
 		stateC:      make(chan string),
 		templateCtx: templateCtx,
-		logger:      log.New("taskr/" + task.TaskName() + "#" + job.ID),
+		logger:      log.With(log.Logger, "task", task.TaskName(), "job", job.ID),
 	}
 	tr_fsm := fsm.NewFSM(
 		TASK_STATE_INIT,
@@ -93,9 +96,8 @@ func NewTaskRunner(job *Job, task *config.Task, templateCtx map[string]interface
 
 				tr.stateC <- e.Dst
 
-				if tr.logger.IsDebug() {
-					tr.logger.Debug("Enter state src:%v dst:%v", e.Src, e.Dst)
-				}
+				log.Debug(tr.logger).Log("msg", "enter_state", "src", e.Src, "dst", e.Dst)
+
 			},
 			"enter_PROCESS": func(e *fsm.Event) {
 				tr.startTime = time.Now()
@@ -110,7 +112,7 @@ func NewTaskRunner(job *Job, task *config.Task, templateCtx map[string]interface
 	go tr.stateListening()
 	go tr.eventListening()
 
-	tr.logger.Info("Start")
+	log.Info(tr.logger).Log("msg", "Start")
 	return tr
 }
 
@@ -158,15 +160,13 @@ L:
 			err := tr.fsm.Event(event)
 			if err != nil {
 				//TODO:
-				tr.logger.Error("fsm event error: %v", err)
+				log.Error(tr.logger).Log("msg", "fsm event", "err", err)
 			}
-			if tr.logger.IsDebug() {
-				tr.logger.Debug("eventListening event:%v", event)
-			}
+			log.Debug(tr.logger).Log("msg", "eventListening", "event", event)
 		}
 	}
 
-	tr.logger.Info("End")
+	log.Info(tr.logger).Log("msg", "end")
 }
 
 func (tr *TaskRunner) processing() error {
@@ -181,10 +181,10 @@ func (tr *TaskRunner) processing() error {
 	err := try.Do(func(attempt int) (bool, error) {
 		err := processFunc()
 		if err != nil {
-			tr.logger.Warning("Retry processing attempt num:%v err:%v", attempt, err)
+			log.Info(tr.logger).Log("msg", "Retry processing attempt", "num", attempt, "err", err)
 			d, err := tr.task.Retry.GetDelayTime()
 			if err != nil {
-				tr.logger.Error("Error retry delaytime err:%v", err)
+				log.Error(tr.logger).Log("msg", "retry delaytime", "err", err)
 			}
 			time.Sleep(d)
 		}
@@ -200,13 +200,13 @@ func (tr *TaskRunner) cmd() (err error) {
 
 	cmdstr, err := tr.task.Read(tr.task.Cmd, tr.templateCtx)
 	if err != nil {
-		tr.logger.Error("cmd statement has template error:%v", err)
+		log.Error(tr.logger).Log("msg", "cmd statement has wrong template", "err", err)
 		return err
 	}
 
 	timeout, err := tr.task.Retry.GetTimeout()
 	if err != nil {
-		tr.logger.Error("task retry timeout error:%v", err)
+		log.Error(tr.logger).Log("msg", "task retry timeout", "err", err)
 		timeout = nil
 	}
 
@@ -217,7 +217,7 @@ func (tr *TaskRunner) cmd() (err error) {
 	cmd.Stderr = &b
 
 	if err := cmd.Start(); err != nil {
-		tr.logger.Error("cmd:%v error:%v", cmdstr, err)
+		log.Error(tr.logger).Log("cmd", cmdstr, "err", err)
 		return err
 	}
 
@@ -230,29 +230,27 @@ func (tr *TaskRunner) cmd() (err error) {
 		select {
 		case <-time.After(*timeout):
 			if err := cmd.Process.Kill(); err != nil {
-				tr.logger.Error("failed to kill err:%v", err)
+				log.Error(tr.logger).Log("msg", "failed to kill", "err", err)
 			}
 			err = <-done
 			if err != nil {
-				tr.logger.Error("Process timeout with err:%v", err)
+				log.Error(tr.logger).Log("msg", "Process timeout", "err", err)
 			}
 		case err = <-done:
 			if err != nil {
-				tr.logger.Error("Process done with err:%v", err)
+				log.Error(tr.logger).Log("msg", "Process done", "err", err)
 			}
 		}
 	} else {
 		err = <-done
 		if err != nil {
-			tr.logger.Error("Process done with err:%v", err)
+			log.Error(tr.logger).Log("msg", "Process done", "err", err)
 		}
 	}
 
 	tr.output = b.String()
 
-	if tr.logger.IsDebug() {
-		tr.logger.Debug("cmd: %s output: %v", cmdstr, tr.output)
-	}
+	log.Debug(tr.logger).Log("cmd", cmdstr, "output", tr.output)
 
 	return
 }
@@ -277,7 +275,7 @@ func (tr *TaskRunner) httpGet() error {
 	url := httpcfg.URL
 	url, err := tr.task.Read(url, tr.templateCtx)
 	if err != nil {
-		tr.logger.Error("http/get has an template error:%v", err)
+		log.Error(tr.logger).Log("msg", "http/get has an template err", "err", err)
 		return err
 	}
 
@@ -346,7 +344,7 @@ func (tr *TaskRunner) httpPost() error {
 	for key, val := range params {
 		val, err = tr.task.Read(val, tctx)
 		if err != nil {
-			tr.logger.Error("http:post has an template error:%v", err)
+			log.Error(tr.logger).Log("msg", "http:post has an template err", "err", err)
 			return err
 		}
 

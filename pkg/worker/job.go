@@ -1,10 +1,13 @@
 package worker
 
 import (
+	"context"
 	"fmt"
-	"golang.org/x/net/context"
-	"github.com/go-loom/loom/config"
-	"github.com/go-loom/loom/log"
+
+	"github.com/go-loom/loom/pkg/config"
+	"github.com/go-loom/loom/pkg/log"
+
+	kitlog "github.com/go-kit/kit/log"
 )
 
 type Job struct {
@@ -17,7 +20,7 @@ type Job struct {
 	changeTaskC                chan *TaskRunner
 	doneTaskC                  chan *TaskRunner
 	onTaskStateChangeHandelers []func(Task)
-	logger                     log.Logger
+	logger                     kitlog.Logger
 }
 
 func NewJob(ctx context.Context, id string, jobConfig *config.Job) *Job {
@@ -30,7 +33,7 @@ func NewJob(ctx context.Context, id string, jobConfig *config.Job) *Job {
 		Tasks:       make(map[string]Task),
 		changeTaskC: make(chan *TaskRunner),
 		doneTaskC:   make(chan *TaskRunner),
-		logger:      log.New("job#" + id),
+		logger:      log.With(log.Logger, "job", id),
 	}
 	job.addTasks()
 
@@ -48,7 +51,7 @@ func (job *Job) Run() {
 	task := NewJobTask("START")
 	matchTasks, jobEndTasks, err := taskRunFilter.Filter(task, job.config.Tasks)
 	if err != nil {
-		job.logger.Error("task when err:%v", err)
+		log.Error(job.logger).Log("err", err)
 		job.cancelF()
 		return
 	}
@@ -61,10 +64,7 @@ func (job *Job) Run() {
 	for _, t := range matchTasks {
 		tr := NewTaskRunner(job, t, taskTemplateMap)
 		tr.Run()
-
-		if job.logger.IsDebug() {
-			job.logger.Debug("Current Task name:%v state:%v -> Run task: %v", task.TaskName(), task.State(), tr.TaskName())
-		}
+		log.Debug(job.logger).Log("task", task.TaskName(), "state", task.State(), "name", tr.TaskName)
 	}
 
 }
@@ -90,9 +90,7 @@ L:
 	for {
 		select {
 		case tr := <-job.doneTaskC:
-			if job.logger.IsDebug() {
-				job.logger.Debug("Recv done taskrunner name:%v state:%v", tr.TaskName(), tr.State())
-			}
+			log.Debug(job.logger).Log("msg", "recv done", "name", tr.TaskName(), "state", tr.State())
 			job.Tasks[tr.TaskName()] = tr
 
 			if isFin, hasErr := job.isFinishTasks(); isFin == true {
@@ -119,9 +117,7 @@ L:
 
 	job.cancelF()
 
-	if job.logger.IsDebug() {
-		job.logger.Debug("End do loop")
-	}
+	log.Debug(job.logger).Log("msg", "end do loop")
 }
 
 func (job *Job) runTasks(task Task, tasks ...[]*config.Task) error {
@@ -141,19 +137,13 @@ func (job *Job) runTasks(task Task, tasks ...[]*config.Task) error {
 	for _, t := range matchTasks {
 		tr := NewTaskRunner(job, t, taskTemplateMap)
 		tr.Run()
-
-		if job.logger.IsDebug() {
-			job.logger.Debug("Current Task name:%v state:%v -> Run task: %v", task.TaskName(), task.State(), tr.TaskName())
-		}
+		log.Debug(job.logger).Log("task", task.TaskName(), "state", task.State(), "name", tr.TaskName())
 	}
 
 	for _, t := range notmatchTasks {
 		tr := NewTaskRunner(job, t, taskTemplateMap)
 		tr.Cancel()
-
-		if job.logger.IsDebug() {
-			job.logger.Debug("Current Task name:%v state:%v -> Cancel task:%v", task.TaskName(), task.State(), tr.TaskName())
-		}
+		log.Debug(job.logger).Log("task", task.TaskName(), "state", task.State(), "name", tr.TaskName())
 	}
 
 	if len(matchTasks) == 0 && len(notmatchTasks) == 0 {
@@ -180,9 +170,7 @@ func (job *Job) isFinishTasks() (bool, bool) {
 			hasErr = true
 		}
 	}
-	if job.logger.IsDebug() {
-		job.logger.Debug("isFinishTasks total:%v tasks:%v", total, len(job.Tasks))
-	}
+	log.Debug(job.logger).Log("msg", "isFinishTasks", "total", total, "tasks", len(job.Tasks))
 
 	if total == len(job.Tasks)-len(job.jobEndTasks) {
 		return true, hasErr
@@ -198,9 +186,7 @@ func (job *Job) isFinishJob() bool {
 			total++
 		}
 	}
-	if job.logger.IsDebug() {
-		job.logger.Debug("isFinishJob total:%v tasks:%v", total, len(job.Tasks))
-	}
+	log.Debug(job.logger).Log("msg", "isFinishJob", "total", total, "tasks", len(job.Tasks))
 
 	if total == len(job.Tasks) {
 		return true

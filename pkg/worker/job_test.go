@@ -1,9 +1,10 @@
 package worker
 
 import (
+	c "github.com/go-loom/loom/pkg/config"
 	"github.com/seanpont/assert"
-	"golang.org/x/net/context"
-	c "github.com/go-loom/loom/config"
+
+	"context"
 	"testing"
 )
 

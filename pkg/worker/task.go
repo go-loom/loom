@@ -1,7 +1,8 @@
 package worker
 
 import (
-	"github.com/go-loom/loom/config"
+	"github.com/go-loom/loom/pkg/config"
+
 	"time"
 )
 
