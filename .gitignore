@@ -28,3 +28,5 @@ _testmain.go
 *.swo
 
 gin-bin
+
+cmd/loom/loom

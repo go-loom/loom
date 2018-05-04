@@ -100,9 +100,9 @@ func (w *Worker) loop() {
 				w.jobq <- job
 			}
 
-		case <-w.stop:
+		case c := <-w.stop:
+			close(c)
 			return
-
 		}
 	}
 }

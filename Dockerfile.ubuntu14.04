@@ -11,13 +11,17 @@ RUN mkdir -p /go
 RUN apt-get update
 RUN apt-get install -y build-essential mercurial git subversion wget curl
 
-# go 1.3 tarball
+# go 1.10 tarball
 RUN wget -qO- http://golang.org/dl/go1.10.1.linux-amd64.tar.gz | tar -C /usr/local -xzf -
 
-COPY . /go/src/github.com/go-loom/loom
-WORKDIR /go/src/github.com/go-loom/loom/cmd/loom
+ENV GOPATH /go
 
-RUN go install 
+RUN go get github.com/ahmetb/govvv
+
+COPY . /go/src/github.com/go-loom/loom
+WORKDIR /go/src/github.com/go-loom/loom
+
+RUN govvv install -pkg github.com/go-loom/loom/pkg/version github.com/go-loom/loom/cmd/loom/...
 
 ENTRYPOINT ["loom"]
 CMD ["-h"]

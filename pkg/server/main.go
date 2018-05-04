@@ -2,8 +2,10 @@ package server
 
 import (
 	"github.com/go-loom/loom/pkg/expvar"
-	pb "github.com/go-loom/loom/pkg/rpc/pb"
+	"github.com/go-loom/loom/pkg/log"
+	"github.com/go-loom/loom/pkg/rpc/pb"
 	"github.com/go-loom/loom/pkg/util"
+	"github.com/go-loom/loom/pkg/version"
 
 	"github.com/gorilla/mux"
 	"github.com/oklog/run"
@@ -63,5 +65,6 @@ func Main(port int, dbpath string) error {
 
 	}
 
+	log.Logger.Log("server", "started", "version", version.Version, "commit", version.GitCommit, "build", version.BuildDate)
 	return g.Run()
 }

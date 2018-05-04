@@ -4,6 +4,7 @@ import (
 	"github.com/go-loom/loom/pkg/expvar"
 	"github.com/go-loom/loom/pkg/log"
 	"github.com/go-loom/loom/pkg/util"
+	"github.com/go-loom/loom/pkg/version"
 
 	"github.com/oklog/run"
 
@@ -56,5 +57,6 @@ func Main(serverURL, topic string, maxJobSize int, workerName string, workerPort
 		})
 	}
 
+	log.Logger.Log("worker", "started", "name", workerName, "version", version.Version, "commit", version.GitCommit, "build", version.BuildDate)
 	return g.Run()
 }

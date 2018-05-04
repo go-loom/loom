@@ -8,12 +8,8 @@ import (
 	"github.com/codegangsta/cli"
 
 	"fmt"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-
 	_ "github.com/seanpont/assert"
+	"os"
 )
 
 func main() {
@@ -67,8 +63,8 @@ func main() {
 					EnvVar: "MAX_JOB_SIZE",
 				},
 				cli.StringFlag{
-					Name:   "name",
-					Value:  "",
+					Name:   "name,n",
+					Value:  "worker1",
 					EnvVar: "WORKER_NAME",
 				},
 				cli.IntFlag{
@@ -97,18 +93,4 @@ func WorkerAction(c *cli.Context) error {
 	workerName := c.String("name")
 	workerPort := c.Int("port")
 	return worker.Main(serverURL, topic, maxJobSize, workerName, workerPort)
-}
-
-func shutdown(callback func() error) {
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		s := <-c
-		log.Println("Got signal: ", s)
-		err := callback()
-		if err != nil {
-			log.Print("Error shutdown: ", err)
-		}
-	}()
 }
