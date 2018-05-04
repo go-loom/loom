@@ -19,6 +19,8 @@ func init() {
 	logLevel := level.AllowInfo()
 	if os.Getenv(loomLogLevel) == "DEBUG" {
 		logLevel = level.AllowAll()
+	} else if os.Getenv(loomLogLevel) == "NONE" {
+		logLevel = level.AllowNone()
 	}
 
 	Logger = level.NewFilter(Logger, logLevel)
