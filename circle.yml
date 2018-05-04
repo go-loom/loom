@@ -5,10 +5,10 @@ dependencies:
     override:
         - docker version
         - docker info
-        - docker build --rm=false -t goloom/loom . 
+        - docker build --rm=false -t loom . 
 test:
     override:
-        - docker run --entrypoint=go goloom/loom test ./... -race
+        - docker run --entrypoint=go loom test ./... -race
 #deployment:
 #    hub:
 #        branch: v1

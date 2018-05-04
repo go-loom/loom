@@ -23,8 +23,6 @@ _testmain.go
 *.test
 *.prof
 
-loom.v1
-loom
 
 *.swp
 *.swo
