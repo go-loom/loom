@@ -136,7 +136,7 @@ func TestTaskRunnerHTTPPost(t *testing.T) {
 	var filePath string
 	gopaths := filepath.SplitList(os.Getenv("GOPATH"))
 	for _, gp := range gopaths {
-		filePath = filepath.Join(gp, "src/gopkg.in/loom.v1/test", "helloworld.json")
+		filePath = filepath.Join(gp, "src/github.com/go-loom/loom/test", "helloworld.json")
 		if _, err := os.Stat(filePath); err == nil {
 			break
 		}

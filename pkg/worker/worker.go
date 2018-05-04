@@ -88,7 +88,7 @@ func (w *Worker) loop() {
 			}
 
 			{
-				if w.isWorkingJob(res.JobId) {
+				if w.isWorkingJob(string(res.JobId)) {
 					log.Info(w.logger).Log("msg", "the job has already worked")
 					continue
 				}
@@ -108,7 +108,6 @@ func (w *Worker) loop() {
 }
 
 func (w *Worker) isWorkingJob(jobID string) bool {
-	jobID := res.JobId
 	w.jobsMutex.RLock()
 	defer w.jobsMutex.RUnlock()
 	if _, ok := w.jobs[jobID]; ok {
@@ -133,7 +132,7 @@ func (w *Worker) newJob(res *pb.SubscribeJobResponse) (*Job, error) {
 		Tasks: *tasksConfig,
 	}
 
-	jobID := res.JobId
+	jobID := string(res.JobId)
 
 	job := NewJob(w.ctx, jobID, jobConfig)
 	job.OnTaskStateChange(func(task Task) {
@@ -172,12 +171,12 @@ func (w *Worker) processJob() {
 }
 
 func (w *Worker) reportJobDone(job *Job) error {
-	req := *pb.ReportJobDoneRequest{
-		JobId:     job.ID,
+	req := &pb.ReportJobDoneRequest{
+		JobId:     []byte(job.ID),
 		TopicName: w.Topic,
 		WorkerId:  w.Name,
 	}
-	_, err := w.Client.ReportJobDone(w.ctx, req)
+	_, err := w.client.ReportJobDone(w.ctx, req)
 	if err != nil {
 		log.Error(w.logger).Log("job", job.ID, "err", err)
 		return err
@@ -192,15 +191,15 @@ func (w *Worker) reportJob(job *Job, tasks Tasks) error {
 		log.Error(w.logger).Log("job", job.ID, "err", err)
 		return err
 	}
-	req := *pb.ReportJobRequest{
-		JobId:     job.ID,
+	req := &pb.ReportJobRequest{
+		JobId:     []byte(job.ID),
 		TopicName: w.Topic,
 		WorkerId:  w.Name,
 		JobMsg:    msg,
 	}
-	_, err := w.Client.ReportJob(w.ctx, req)
-	if err != nil {
+	if _, err = w.client.ReportJob(w.ctx, req); err != nil {
 		log.Error(w.logger).Log("job", job.ID, "err", err)
+		return err
 	}
 	return nil
 }
