@@ -15,7 +15,7 @@ RUN apt-get install -y build-essential mercurial git subversion wget curl
 RUN wget -qO- http://golang.org/dl/go1.10.1.linux-amd64.tar.gz | tar -C /usr/local -xzf -
 
 COPY . /go/src/github.com/go-loom/loom
-WORKDIR /go/src/github.com/go-loom/loom
+WORKDIR /go/src/github.com/go-loom/loom/cmd/loom
 
 RUN go install 
 
