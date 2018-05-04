@@ -7,20 +7,10 @@
   revision = "8a2a9b2eb7123c41ea752bab494ff046909e9473"
 
 [[projects]]
-  name = "github.com/cenkalti/backoff"
-  packages = ["."]
-  revision = "32cd0c5b3aef12c76ed64aaf678f6c79736be7dc"
-  version = "v1.0.0"
-
-[[projects]]
   name = "github.com/codegangsta/cli"
   packages = ["."]
-  revision = "30b361bf66a60174a9589458afbf494478bafd00"
-
-[[projects]]
-  name = "github.com/dgrijalva/jwt-go"
-  packages = ["."]
-  revision = "668b54691aeab72f51c3ab9e0f6262521f201af3"
+  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
+  version = "v1.20.0"
 
 [[projects]]
   name = "github.com/go-kit/kit"
@@ -66,34 +56,6 @@
   version = "v1.1"
 
 [[projects]]
-  name = "github.com/gorilla/websocket"
-  packages = ["."]
-  revision = "e2e3d8414d0fbae04004f151979f4e27c6747fe7"
-
-[[projects]]
-  name = "github.com/juju/ratelimit"
-  packages = ["."]
-  revision = "77ed1c8a01217656d2080ad51981f6e99adaa177"
-
-[[projects]]
-  name = "github.com/koding/cache"
-  packages = ["."]
-  revision = "704055ea875a873a183314b60735f7ba403429da"
-
-[[projects]]
-  name = "github.com/koding/kite"
-  packages = [
-    ".",
-    "config",
-    "dnode",
-    "kitekey",
-    "protocol",
-    "sockjsclient",
-    "systeminfo"
-  ]
-  revision = "19ceb4e61b5cf3198c87a5ca6be99d4ca630bb23"
-
-[[projects]]
   name = "github.com/koding/logging"
   packages = ["."]
   revision = "bd69e57f3b8c014892d8508cbd83972fed0df36d"
@@ -115,20 +77,10 @@
   revision = "8316cbf8a73db1d13c3b8840c39ced55141f41fd"
 
 [[projects]]
-  name = "github.com/mitchellh/mapstructure"
-  packages = ["."]
-  revision = "d2dd0262208475919e1a362f675cfc0e7c10e905"
-
-[[projects]]
   name = "github.com/oklog/run"
   packages = ["."]
   revision = "4dadeb3030eda0273a12382bb2348ffc7c9d1a39"
   version = "v1.0.0"
-
-[[projects]]
-  name = "github.com/satori/go.uuid"
-  packages = ["."]
-  revision = "e673fdd4dea8a7334adbbe7f57b7e4b00bdc5502"
 
 [[projects]]
   branch = "master"
@@ -147,23 +99,13 @@
   version = "v5.3.0"
 
 [[projects]]
-  name = "golang.org/x/crypto"
-  packages = ["ssh/terminal"]
-  revision = "c197bcf24cde29d3f73c7b4ac6fd41f4384e8af6"
-
-[[projects]]
   name = "golang.org/x/net"
   packages = ["context"]
   revision = "a8c61998a557a37435f719980da368469c10bfed"
 
-[[projects]]
-  name = "gopkg.in/igm/sockjs-go.v2"
-  packages = ["sockjs"]
-  revision = "05b5e3121f692bea77aeb1160e4e7881017dc093"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "40e5e27728f099c516405abd038ac64dca654afb672368ee2d94303562e8d1e2"
+  inputs-digest = "2f80c8d4ec4aa2d9f0c2ed26ccbd0f6ec20021d13f770ea3cde8de853594df67"
   solver-name = "gps-cdcl"
   solver-version = 1
