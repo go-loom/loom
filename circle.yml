@@ -5,10 +5,10 @@ dependencies:
     override:
         - docker version
         - docker info
-        - docker build -t goloom/loom:$CIRCLE_SHA1 . 
+        - docker build --rm=false -t goloom/loom . 
 test:
     override:
-        - docker run --entrypoint=go goloom/loom:$CIRCLE_SHA1 test ./... -race
+        - docker run --entrypoint=go goloom/loom test ./... -race
 #deployment:
 #    hub:
 #        branch: v1
