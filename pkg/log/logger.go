@@ -1,7 +1,7 @@
 package log
 
 import (
-	stdlog "log"
+	//stdlog "log"
 	"os"
 
 	"github.com/go-kit/kit/log"
@@ -26,8 +26,8 @@ func init() {
 	Logger = level.NewFilter(Logger, logLevel)
 	Logger = log.With(Logger, "caller", log.DefaultCaller)
 
-	stdlog.SetFlags(0) // flags are handled by Go kit's logger
-	stdlog.SetOutput(log.NewStdlibAdapter(Logger))
+	//stdlog.SetFlags(0) // flags are handled by Go kit's logger
+	//stdlog.SetOutput(log.NewStdlibAdapter(Logger))
 }
 
 func With(l log.Logger, kv ...interface{}) log.Logger {
