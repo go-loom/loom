@@ -55,6 +55,7 @@ func NewBroker(ctx context.Context, dbpath string) *Broker {
 		logger:     log.With(log.Logger),
 	}
 
+	go b.loop()
 	go b.recvTopicQuit()
 	return b
 }
@@ -92,7 +93,7 @@ func (b *Broker) Done() {
 }
 
 // twirp rpc interface
-func (b *Broker) SubscribeJob(ctx context.Context, req *pb.SubscribeJobRequest) (res *pb.SubscribeJobResponse, err error) {
+func (b *Broker) SubscribeJob(ctx context.Context, req *pb.SubscribeJobRequest) (*pb.SubscribeJobResponse, error) {
 
 	var (
 		notFound  = make(chan struct{})
@@ -104,6 +105,7 @@ func (b *Broker) SubscribeJob(ctx context.Context, req *pb.SubscribeJobRequest) 
 	workerID := req.WorkerId
 
 	l := log.With(b.logger, "f", "SubscribeJob", "worker", workerID, "topic", topicName)
+	log.Debug(l).Log("start", true)
 
 	b.action <- func() {
 		topic := b.Topic(topicName)
@@ -120,6 +122,11 @@ func (b *Broker) SubscribeJob(ctx context.Context, req *pb.SubscribeJobRequest) 
 		newJobMsg <- msg
 	}
 
+	var (
+		err error
+		res *pb.SubscribeJobResponse = &pb.SubscribeJobResponse{}
+	)
+
 	select {
 	case <-notFound:
 		res.JobStatus = pb.SubscribeJobResponse_NoJob
@@ -131,13 +138,14 @@ func (b *Broker) SubscribeJob(ctx context.Context, req *pb.SubscribeJobRequest) 
 		if _err != nil {
 			err = _err
 			log.Error(l).Log("err", err)
-			return
+			return res, err
 		}
 		res.JobMsg = b
 		log.Info(l).Log("newJob", res.JobId)
 	}
 
-	return
+	log.Debug(l).Log("end", true)
+	return res, err
 }
 
 func (b *Broker) ReportJob(ctx context.Context, req *pb.ReportJobRequest) (res *pb.ReportJobResponse, err error) {
@@ -254,6 +262,17 @@ func (b *Broker) NewID() MessageID {
 func (b *Broker) recvTopicQuit() {
 	for _ = range b.topicQuitC {
 		b.wg.Done()
+	}
+}
+
+func (b *Broker) loop() {
+	for {
+		select {
+		case f := <-b.action:
+			f()
+		case <-b.ctx.Done():
+			return
+		}
 	}
 }
 

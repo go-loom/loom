@@ -36,7 +36,7 @@ func NewWorker(ctx context.Context, name string, serverURL, topic string, maxJob
 		maxJobSize: maxJobSize,
 		client:     client,
 		jobs:       make(map[string]*Job, 0),
-		logger:     log.With(log.Logger, "worker", topic),
+		logger:     log.With(log.Logger, "worker", name, "topic", topic),
 		ctx:        ctx,
 		jobq:       make(chan *Job, maxJobSize),
 		stop:       make(chan chan struct{}),

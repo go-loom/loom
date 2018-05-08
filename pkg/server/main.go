@@ -37,7 +37,7 @@ func Main(port int, dbpath string) error {
 			r := mux.NewRouter()
 
 			twirpHandler := pb.NewLoomServer(broker, nil)
-			r.Handle(pb.LoomPathPrefix, twirpHandler)
+			r.PathPrefix(pb.LoomPathPrefix).Handler(twirpHandler)
 
 			httpApiHandler := &httpApiHandler{
 				broker: broker,
