@@ -117,7 +117,7 @@ L:
 
 	job.cancelF()
 
-	log.Debug(job.logger).Log("msg", "end do loop")
+	log.Debug(job.logger).Log("msg", "End Doloop")
 }
 
 func (job *Job) runTasks(task Task, tasks ...[]*config.Task) error {

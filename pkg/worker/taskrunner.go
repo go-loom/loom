@@ -112,7 +112,7 @@ func NewTaskRunner(job *Job, task *config.Task, templateCtx map[string]interface
 	go tr.stateListening()
 	go tr.eventListening()
 
-	log.Info(tr.logger).Log("msg", "Start")
+	log.Info(tr.logger).Log("taskrunner", "Start")
 	return tr
 }
 
@@ -166,7 +166,7 @@ L:
 		}
 	}
 
-	log.Info(tr.logger).Log("msg", "end")
+	log.Info(tr.logger).Log("taskrunner", "End")
 }
 
 func (tr *TaskRunner) processing() error {
