@@ -117,11 +117,11 @@ func (w *Worker) isWorkingJob(jobID string) bool {
 }
 
 func (w *Worker) newJob(res *pb.SubscribeJobResponse) (*Job, error) {
-	var tasksConfig *[]*config.Task
+	var jm JobMessage
 
-	err := json.Unmarshal(res.JobMsg, tasksConfig)
+	err := json.Unmarshal(res.JobMsg, &jm)
 	if err != nil {
-		log.Error(w.logger).Log("msg", "jobmsg", "err", err)
+		log.Error(w.logger).Log("msg", "jobmsg", "err", err, "json", string(res.JobMsg))
 		//TODO: client Report job (error)
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (w *Worker) newJob(res *pb.SubscribeJobResponse) (*Job, error) {
 	//log.Debug(w.logger).Log("tasksConfig", tasksConfig)
 
 	jobConfig := &config.Job{
-		Tasks: *tasksConfig,
+		Tasks: jm.Tasks,
 	}
 
 	jobID := string(res.JobId)

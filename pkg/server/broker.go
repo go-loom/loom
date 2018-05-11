@@ -149,6 +149,8 @@ func (b *Broker) SubscribeJob(ctx context.Context, req *pb.SubscribeJobRequest) 
 }
 
 func (b *Broker) ReportJob(ctx context.Context, req *pb.ReportJobRequest) (res *pb.ReportJobResponse, err error) {
+	res = &pb.ReportJobResponse{}
+
 	jobID := req.JobId
 	workerID := req.WorkerId
 	topicName := req.TopicName
@@ -168,13 +170,14 @@ func (b *Broker) ReportJob(ctx context.Context, req *pb.ReportJobRequest) (res *
 		log.Error(l).Log("err", ErrMsgNotFound)
 	}
 
-	var tasks *map[string]interface{}
-	err = json.Unmarshal(jobMsg, tasks)
+	tasks := make(map[string]interface{})
+	err = json.Unmarshal(jobMsg, &tasks)
 	if err != nil {
-		log.Error(l).Log("err", err)
+		log.Error(l).Log("err", err, "json", string(jobMsg))
+		return
 	}
 
-	msg.SetResults(workerID, *tasks)
+	msg.SetResults(workerID, tasks)
 	err = topic.msgBucket.Put(msg)
 	if err != nil {
 		log.Error(l).Log("err", err)
@@ -186,6 +189,8 @@ func (b *Broker) ReportJob(ctx context.Context, req *pb.ReportJobRequest) (res *
 }
 
 func (b *Broker) ReportJobDone(ctx context.Context, req *pb.ReportJobDoneRequest) (res *pb.ReportJobDoneResponse, err error) {
+	res = &pb.ReportJobDoneResponse{}
+
 	jobID := req.JobId
 	workerID := req.WorkerId
 	topicName := req.TopicName
