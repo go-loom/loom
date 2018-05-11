@@ -110,39 +110,6 @@ func (t *Topic) FinishMessage(id MessageID) error {
 	return nil
 }
 
-/*
-func (t *Topic) PushPendingMsgsInWorker(workerId string) {
-	pmb := t.store.MessageBucket(WorkerPerMessageBucketNamePrefix + workerId)
-
-	num := 0
-	pmb.Walk(func(pm *Message) error {
-		m, err := t.msgBucket.Get(pm.ID)
-		if err != nil {
-			return err
-		}
-		if m.State == MSG_RECEIVED {
-			m.State = MSG_PENDING
-			err = t.msgBucket.Put(m)
-			if err != nil {
-				t.logger.Error("Error message %v requeue", string(m.ID[:]))
-			}
-			t.push(m)
-
-			t.logger.Info("Message %v is re-pushed to queue", string(m.ID[:]))
-			num++
-		}
-		return err
-	})
-
-	err := pmb.DelBucket()
-	if err != nil {
-		t.logger.Error("PushPendingMsgsInWorker Remove err:%v", err)
-	}
-	t.logger.Info("Pushed pending msgs:%v", num)
-	return
-}
-*/
-
 func (t *Topic) push(msg *Message) {
 	t.Queue.Push(msg)
 }
